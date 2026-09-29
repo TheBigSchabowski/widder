@@ -1,0 +1,135 @@
+package widder.core
+
+import kotlinx.serialization.Serializable
+
+/** The two paths from the start screen. */
+@Serializable
+enum class DeckKind { CARDS, CHORDS }
+
+@Serializable
+data class Deck(
+    val id: String,
+    val name: String,
+    val kind: DeckKind = DeckKind.CARDS,
+    val newPerDay: Int = 20,
+    val reviewsPerDay: Int = 200,
+    /** Chord training only: extra wrong tiles mixed into the pool. */
+    val distractors: Int = 0,
+    /** Chord training only: where the wrong tiles come from; empty = chords close to the answer. */
+    val pool: List<String> = emptyList(),
+    val created: Long = 0,
+)
+
+/**
+ * Non-destructive edit of an audio clip. The original file is never touched; every playback
+ * renders it through these settings, so they can be changed again at any time - also in the
+ * middle of a review when something sounds off.
+ */
+@Serializable
+data class AudioEdit(
+    /** Seconds from the start of the source. */
+    val trimStart: Double = 0.0,
+    /** Seconds from the start of the source; null = up to the end. */
+    val trimEnd: Double? = null,
+    val gainDb: Double = 0.0,
+    /** Brings the loudest peak of the selection to -1 dBFS before [gainDb] is applied. */
+    val normalize: Boolean = false,
+    val fadeIn: Double = 0.0,
+    val fadeOut: Double = 0.0,
+    /** High-pass cutoff in Hz; 0 = off. */
+    val lowCut: Double = 0.0,
+    /** Low-pass cutoff in Hz; 0 = off. */
+    val highCut: Double = 0.0,
+    /** Share of reverberated signal, 0..1. */
+    val reverbMix: Double = 0.0,
+    val reverbSize: Double = 0.6,
+    val reverbDamping: Double = 0.4,
+) {
+    val isNeutral: Boolean get() = this == AudioEdit()
+}
+
+/** An audio or MIDI file in the collection's media folder, with its edit. */
+@Serializable
+data class Clip(
+    /** File name inside the media folder. */
+    val file: String,
+    /** The name the file had when it was imported or recorded. */
+    val name: String,
+    val edit: AudioEdit = AudioEdit(),
+) {
+    val isMidi: Boolean get() = file.endsWith(".mid", true) || file.endsWith(".midi", true)
+}
+
+@Serializable
+data class Card(
+    val id: String,
+    val deckId: String,
+    val front: String = "",
+    val back: String = "",
+    val frontAudio: Clip? = null,
+    val backAudio: Clip? = null,
+    /** Chord training: the tokens to be put in order, as written (e.g. "Fmin", "Gmin"). */
+    val answer: List<String> = emptyList(),
+    val tags: List<String> = emptyList(),
+    val created: Long = 0,
+    val modified: Long = 0,
+)
+
+@Serializable
+data class RewardSettings(
+    val enabled: Boolean = true,
+    /** File name inside the media folder, or null for no image. */
+    val image: String? = null,
+    val columns: Int = 3,
+    val rows: Int = 2,
+    val secondsPerTile: Int = 20 * 60,
+    /** 1 (light) .. 4 (very strong). */
+    val blur: Int = 3,
+    val resetDaily: Boolean = true,
+)
+
+@Serializable
+data class Settings(
+    /** German note names: H is B natural and B is B flat. */
+    val germanNotation: Boolean = false,
+    /** Minor chords written as "Fmin" instead of "Fm" when the app names chords itself. */
+    val minorAsMin: Boolean = false,
+    val autoplay: Boolean = true,
+    val reward: RewardSettings = RewardSettings(),
+)
+
+@Serializable
+data class Collection(
+    val decks: List<Deck> = emptyList(),
+    val cards: List<Card> = emptyList(),
+    val settings: Settings = Settings(),
+)
+
+@Serializable
+data class DayStats(
+    val reviews: Int = 0,
+    val correct: Int = 0,
+    val xp: Int = 0,
+    val studySeconds: Int = 0,
+)
+
+@Serializable
+data class RewardProgress(
+    /** Learning day (yyyy-mm-dd) the seconds belong to. */
+    val day: String = "",
+    val seconds: Int = 0,
+    /** The order in which tiles are revealed, shuffled once per image and grid. */
+    val order: List<Int> = emptyList(),
+)
+
+@Serializable
+data class Progress(
+    val cards: Map<String, ReviewState> = emptyMap(),
+    /** "day|deckId" -> number of new cards started / reviews done that day. */
+    val newIntroduced: Map<String, Int> = emptyMap(),
+    val reviewsDone: Map<String, Int> = emptyMap(),
+    /** Learning day -> what happened that day; feeds the streak and XP. */
+    val days: Map<String, DayStats> = emptyMap(),
+    val totalXp: Int = 0,
+    val reward: RewardProgress = RewardProgress(),
+)
