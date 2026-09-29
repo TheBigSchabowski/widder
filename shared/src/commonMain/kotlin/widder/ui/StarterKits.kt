@@ -14,15 +14,15 @@ import widder.music.MidiAnalysis
 object StarterKits {
     const val A_CHORDS_ID = "startkit-a"
 
-    /** Everything built on A: colours, inversions, octave and power chord. */
-    val A_CHORDS = listOf("Am(add9)", "Amaj(add9)", "A7", "Amaj7", "Am/C", "Am/E", "Amaj", "A-Oktave", "A5", "A/C#", "A/A")
+    /** Everything built on A: colours, the inversions of A and Am, octave and power chord. */
+    val A_CHORDS = listOf("Am(add9)", "Amaj(add9)", "A7", "Amaj7", "Am/C", "Am/E", "Amaj", "A/C#", "A/E", "A-Oktave", "A5")
 
     /** A few orders to put right, from the same chords. */
     private val SEQUENCES = listOf(
         listOf("Amaj", "A7", "Amaj7"),
         listOf("Am/C", "Am/E", "Am(add9)"),
         listOf("A5", "A/C#", "Amaj(add9)"),
-        listOf("A/A", "A-Oktave", "Amaj"),
+        listOf("Amaj", "A/C#", "A/E"),
     )
 
     fun aChords(store: Store): Pair<Deck, List<Card>> {
@@ -33,7 +33,7 @@ object StarterKits {
         val cards = exercises.mapIndexed { i, answer ->
             val chords = answer.map { requireNotNull(Chord.parse(it)) { it } }
             val name = answer.joinToString(" ")
-            // No extra root in the bass: that is what sets A/A apart from Amaj.
+            // No extra root in the bass, so Amaj stays in root position and the inversions stand out.
             val bytes = Midi.write(MidiAnalysis.progression(chords, secondsPerChord = 1.8, rootBass = false), bpm = 100)
             Card(
                 "$A_CHORDS_ID-$i",

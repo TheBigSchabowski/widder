@@ -86,8 +86,7 @@ data class Chord(val root: Int, val quality: Quality, val bass: Int? = null) {
             if (slash > 0) {
                 val main = parse(t.substring(0, slash), german) ?: return null
                 val bass = parseRoot(t.substring(slash + 1), german).firstOrNull { it.second.isEmpty() }?.first ?: return null
-                // Kept even when it is the root: "A/A" asks for the root in the bass explicitly.
-                return main.copy(bass = bass)
+                return main.copy(bass = bass.takeIf { it != main.root })
             }
             for ((root, rest) in parseRoot(t, german)) {
                 Quality.parse(rest)?.let { return Chord(root, it) }

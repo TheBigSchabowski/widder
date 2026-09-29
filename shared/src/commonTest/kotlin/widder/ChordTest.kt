@@ -45,7 +45,8 @@ class ChordTest {
         assertEquals(Chord(9, Quality.POWER), chord("Apowerchord"))
         assertEquals(Chord(9, Quality.OCTAVE), chord("A-Oktave"))
         assertEquals(Chord(9, Quality.MINOR, bass = 0), chord("Am/C"))
-        assertEquals(Chord(9, Quality.MAJOR, bass = 9), chord("A/A"))
+        assertEquals(Chord(9, Quality.MAJOR, bass = 4), chord("A/E"))
+        assertEquals(chord("A").key, chord("A/A").key)
         assertEquals(chord("A").key, chord("Amaj").key)
     }
 

@@ -272,8 +272,7 @@ object MidiAnalysis {
 
     /**
      * Close voicing around middle C. A slash chord gets its bass note an octave or two below;
-     * with [rootBass] a plain chord gets its root there too (fuller, for progressions). Without it,
-     * "A" and "A/A" sound different: the second one has the low A.
+     * with [rootBass] a plain chord gets its root there too (fuller, for progressions).
      */
     fun voice(chord: Chord, start: Double, length: Double, velocity: Int = 90, rootBass: Boolean = true): List<Note> {
         val base = 60 + chord.root % 12 - if (chord.root % 12 > 6) 12 else 0

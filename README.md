@@ -28,10 +28,9 @@ Akkorde dazu (Stapel-Optionen). Die Bewertung wird vorgeschlagen und fließt in 
 FSRS-Scheduler.
 
 **Startkit: A-Akkorde** (bei neuen Sammlungen dabei, sonst unter Akkord-Training → „Hinzufügen“):
-Am(add9), Amaj(add9), A7, Amaj7, Am/C, Am/E, Amaj, A-Oktave, A5, A/C#, A/A – jeder einzeln zum
-Erkennen, dazu ein paar Folgen daraus. Die falschen Kacheln kommen aus dem Kit selbst. Akkorde
-ohne Slash klingen ohne Extra-Bass, Slash-Akkorde mit tiefem Basston – so unterscheiden sich
-Amaj und A/A hörbar.
+Am(add9), Amaj(add9), A7, Amaj7, Am/C, Am/E, Amaj, A/C#, A/E, A-Oktave, A5 – jeder einzeln zum
+Erkennen, dazu ein paar Folgen daraus (u. a. Amaj → A/C# → A/E). Die falschen Kacheln kommen aus
+dem Kit selbst. Amaj klingt in Grundstellung ohne Extra-Bass, die Umkehrungen mit tiefem Basston.
 
 Verstanden werden u. a. `m min - moll`, `7 maj7 M7 Δ`, `m7 m7b5 ø dim dim7 aug sus2 sus4 6 9 add9`,
 Slash-Akkorde (`C/E`) und deutsche Namen (`H`, `Fis`, `Es`, `As`, `Cism`, `Des-Dur`).
