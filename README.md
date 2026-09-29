@@ -73,8 +73,10 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ./gradlew :desktopApp:renderScreens                # alle Bildschirme als PNG (Handy + Desktop)
 ```
 
-Ohne eigenen Schlüssel (`~/.android/widder-release.jks` + `.pass`) wird das Release-APK mit dem
-Debug-Schlüssel signiert.
+Release bauen: `./tools/build-release.sh` legt DMG, APK und Prüfsummen in `dist/releases`.
+Die APK wird mit `~/.android/widder-release.jks` signiert (einmalig erzeugt von
+`tools/android-sign.sh`). **Schlüssel und `.pass`-Datei sichern:** Nur damit signierte Versionen
+lassen sich über die installierte App aktualisieren. Das Icon kommt aus `tools/make-icon.sh`.
 
 Auf dem Mac: Dateien (auch ganze Ordner) einfach ins Fenster ziehen. Tastatur beim Abfragen:
 Leertaste, 1–4, R (nochmal hören), E (bearbeiten), ⌘Z; im Training Enter = prüfen/weiter,

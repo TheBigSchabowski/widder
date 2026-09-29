@@ -43,6 +43,7 @@ compose.desktop {
             modules("java.desktop")
             macOS {
                 bundleID = "de.privat.widder"
+                iconFile.set(project.file("icon.icns"))
                 infoPlist {
                     extraKeysRawXml = """
                         <key>NSMicrophoneUsageDescription</key>
@@ -58,5 +59,12 @@ tasks.register<JavaExec>("renderScreens") {
     description = "Renders the main screens at phone and desktop size into build/screens."
     classpath = sourceSets["test"].runtimeClasspath
     mainClass = "widder.desktop.RenderScreensKt"
+    workingDir = projectDir
+}
+
+tasks.register<JavaExec>("renderIcon") {
+    description = "Renders the app icon as a 1024 px PNG into build/icon-1024.png."
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass = "widder.desktop.RenderIconKt"
     workingDir = projectDir
 }
