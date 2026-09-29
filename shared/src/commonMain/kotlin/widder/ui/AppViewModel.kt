@@ -611,6 +611,9 @@ class AppViewModel(
         nextReviewCard(skip = card.id)
     }
 
+    /** Tests: stores [card] as it is. */
+    internal fun updateCardForTest(card: Card) = replaceCard(card)
+
     /** Tests: records one good answer for [card]. */
     internal fun saveProgressForTest(card: Card) = saveProgress(progress.answer(card, Grade.GOOD, 0))
 
@@ -981,19 +984,30 @@ class AppViewModel(
             }
         }
         val removed = cards.filter { it.source != null && it.source !in present && it.id !in replaced }
-        if (added.isEmpty() && replaced.isEmpty() && removed.isEmpty()) {
+        val repaired = mutableMapOf<String, Card>()
+        // Up to 1.2 "Am(add9).mid" was read as "Am". Cards still holding exactly that misreading
+        // get the right answer; anything edited by hand is left alone.
+        for (card in cards) {
+            val name = card.source ?: continue
+            if (name !in present || card.id in replaced) continue
+            val misread = AnswerParser.parse(name.replace(Regex("\\([^)]*\\)"), " "), settings.germanNotation).map { it.text }
+            val right = AnswerParser.parse(name, settings.germanNotation).map { it.text }
+            if (card.answer == misread && right != misread && right.isNotEmpty()) repaired[card.id] = card.copy(answer = right, modified = now)
+        }
+        if (added.isEmpty() && replaced.isEmpty() && removed.isEmpty() && repaired.isEmpty()) {
             if (!quiet) toast("„${deck.name}“ ist auf dem Stand des Ordners")
             return@withLock
         }
         removed.forEach { deleteClipFiles(it) }
         val removedIds = removed.map { it.id }.toSet()
-        saveCollection(collection.copy(cards = collection.cards.filter { it.id !in removedIds }.map { replaced[it.id] ?: it } + added))
+        saveCollection(collection.copy(cards = collection.cards.filter { it.id !in removedIds }.map { replaced[it.id] ?: repaired[it.id] ?: it } + added))
         if (removedIds.isNotEmpty()) saveProgress(progress.copy(cards = progress.cards - removedIds))
-        replaced.values.forEach { refreshSessionsFor(it) }
+        (replaced.values + repaired.values).forEach { refreshSessionsFor(it) }
         val parts = listOfNotNull(
             added.size.takeIf { it > 0 }?.let { "$it neu" },
             replaced.size.takeIf { it > 0 }?.let { "$it ersetzt" },
             removed.size.takeIf { it > 0 }?.let { "$it entfernt" },
+            repaired.size.takeIf { it > 0 }?.let { if (it == 1) "1 Lösung korrigiert" else "$it Lösungen korrigiert" },
         )
         toast("${deck.name}: ${parts.joinToString(", ")}")
     }

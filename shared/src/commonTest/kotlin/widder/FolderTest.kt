@@ -114,6 +114,21 @@ class FolderTest {
     }
 
     @Test
+    fun answersMisreadBefore13AreRepaired() {
+        val vm = vm()
+        val deck = StarterKits.A_CARDS_ID
+        val card = vm.cardsIn(deck).first { it.source == "Am∕C Am∕E Am(add9).mid" }
+        assertEquals(listOf("Am/C", "Am/E", "Am(add9)"), card.answer)
+        // What 1.2 stored, and one the user changed on purpose.
+        vm.updateCardForTest(card.copy(answer = listOf("Am/C", "Am/E", "Am")))
+        val own = vm.cardsIn(deck).first { it.source == "A7.mid" }
+        vm.updateCardForTest(own.copy(answer = listOf("A9")))
+        vm.syncFolder(deck)
+        assertEquals(listOf("Am/C", "Am/E", "Am(add9)"), vm.cardsIn(deck).first { it.id == card.id }.answer)
+        assertEquals(listOf("A9"), vm.cardsIn(deck).first { it.id == own.id }.answer)
+    }
+
+    @Test
     fun anyDeckCanBeLinked() {
         val vm = vm()
         val deck = vm.createDeck("Meine Akkorde", DeckKind.CHORDS)
