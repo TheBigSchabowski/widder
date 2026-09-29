@@ -36,6 +36,9 @@ interface PlatformHooks {
 
     /** The Mac takes files dropped onto the window; the hint is only shown there. */
     val canDropFiles: Boolean get() = false
+
+    /** Folders the user can see; null where decks cannot be linked to one. */
+    val folders: widder.core.FolderAccess? get() = null
 }
 
 object NoPlatform : PlatformHooks {

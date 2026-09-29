@@ -46,7 +46,7 @@ fun dataDir(): File = System.getProperty("widder.dataDir")?.let(::File)
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() = application {
-    val viewModel = remember { AppViewModel(Store(DirectoryStore(dataDir())), desktopAudioSystem(), DesktopHooks) }
+    val viewModel = remember { AppViewModel(Store(DirectoryStore(dataDir())), desktopAudioSystem(), DesktopHooks(dataDir())) }
     DisposableEffect(Unit) { onDispose { viewModel.dispose() } }
     Window(
         onCloseRequest = {
@@ -127,8 +127,10 @@ private fun handleKey(vm: AppViewModel, event: KeyEvent): Boolean {
     return vm.onKey(key)
 }
 
-/** The native macOS open dialog. */
-private object DesktopHooks : PlatformHooks {
+/** The native macOS open dialog, and folders in Finder. */
+private class DesktopHooks(dataDir: File) : PlatformHooks {
+    override val folders = DesktopFolders(dataDir)
+
     private var lastDir: String = File(System.getProperty("user.home"), "Music").takeIf { it.isDirectory }?.path
         ?: System.getProperty("user.home")
 

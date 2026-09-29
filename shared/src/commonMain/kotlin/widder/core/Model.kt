@@ -19,6 +19,8 @@ data class Deck(
     val pool: List<String> = emptyList(),
     /** Key for the roman numerals, e.g. "A" or "fis-Moll"; null = recognised from each card's chords. */
     val key: String? = null,
+    /** A folder this deck mirrors (see FolderAccess); every audio/MIDI file in it is a card. */
+    val folder: String? = null,
     val created: Long = 0,
 )
 
@@ -77,6 +79,10 @@ data class Card(
     val answer: List<String> = emptyList(),
     /** Key for the roman numerals; null = the deck's key, or recognised from the chords. */
     val key: String? = null,
+    /** The file in the deck's folder this card comes from; the card follows that file. */
+    val source: String? = null,
+    /** The file's stamp when it was last read in; a different one means it was replaced. */
+    val sourceStamp: Long = 0,
     val tags: List<String> = emptyList(),
     val created: Long = 0,
     val modified: Long = 0,
@@ -104,6 +110,8 @@ data class Settings(
     val autoplay: Boolean = true,
     /** How chords are labelled: name only, roman numeral with the name "I (A)", or numeral only. */
     val numerals: NumeralMode = NumeralMode.WITH_NAME,
+    /** The starter kits were given their folder once; unlinking them afterwards sticks. */
+    val kitFolderLinked: Boolean = false,
     val reward: RewardSettings = RewardSettings(),
 )
 

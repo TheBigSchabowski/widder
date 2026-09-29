@@ -105,6 +105,7 @@ class AppViewModel(
     private val sources = RenderCache(6)
     private val rendered = RenderCache(10)
     private val cacheLock = Mutex()
+    private val folderLock = Mutex()
     private var unsavedSeconds = 0
     private var messageJob: Job? = null
 
@@ -114,6 +115,7 @@ class AppViewModel(
     init {
         loadRewardImage()
         if (live) {
+            refreshFolders()
             scope.launch {
                 while (true) {
                     delay(1000)
@@ -200,6 +202,7 @@ class AppViewModel(
         val (deck, cards) = if (kind == DeckKind.CHORDS) StarterKits.aChords(store) else StarterKits.aChordCards(store)
         saveCollection(collection.copy(decks = collection.decks + deck, cards = collection.cards + cards))
         toast("Startkit „${deck.name}“ angelegt")
+        scope.launch { linkKitFolder(deck.id) }
     }
 
     fun deleteDeck(deckId: String) {
@@ -590,6 +593,9 @@ class AppViewModel(
         nextReviewCard(skip = card.id)
     }
 
+    /** Tests: records one good answer for [card]. */
+    internal fun saveProgressForTest(card: Card) = saveProgress(progress.answer(card, Grade.GOOD, 0))
+
     fun undoReview() {
         val session = review ?: return
         val (card, before) = session.undo ?: return
@@ -755,26 +761,35 @@ class AppViewModel(
             return
         }
         val now = currentTimeMillis()
-        val cards = files.mapIndexed { i, f ->
-            val clip = Clip(store.addMedia(f.name, f.bytes), f.name)
-            val answer = answerFor(f)
-            val chordsFound = answer.isNotEmpty() && answer.all { Chord.parse(it, settings.germanNotation) != null }
-            val midiNote = if (f.extension in MIDI_EXTENSIONS) "MIDI" else "Audio"
-            Card(
-                newId(),
-                deckId,
-                front = if (chordsFound) "Welche Akkorde hörst du?" else "Was hörst du?",
-                // The chords themselves are shown under the back, with their numerals.
-                back = "$midiNote: ${f.name.substringBeforeLast('.')}",
-                frontAudio = clip,
-                answer = if (chordsFound) answer else emptyList(),
-                created = now + i,
-                modified = now,
-            )
-        }
+        val cards = files.mapIndexed { i, f -> cardFromFile(deck, f, Clip(store.addMedia(f.name, f.bytes), f.name), now + i) }
         saveCollection(collection.copy(cards = collection.cards + cards))
         toast(if (cards.size == 1) "1 Karte angelegt" else "${cards.size} Karten angelegt")
         if (screen !is Screen.Browse) open(Screen.Browse(deckId))
+    }
+
+    /** A card for an imported or folder file: its name gives the chords, a MIDI file's notes if not. */
+    private fun cardFromFile(deck: Deck, file: IncomingFile, clip: Clip, created: Long): Card {
+        val answer = answerFor(file)
+        val title = file.name.substringBeforeLast('.').replace(AnswerParser.FILE_SLASH, '/')
+        if (deck.kind == DeckKind.CHORDS) {
+            return Card(newId(), deck.id, front = title, frontAudio = clip, answer = answer, created = created, modified = created)
+        }
+        val chordsFound = answer.isNotEmpty() && answer.all { Chord.parse(it, settings.germanNotation) != null }
+        return Card(
+            newId(),
+            deck.id,
+            front = when {
+                !chordsFound -> "Was hörst du?"
+                answer.size == 1 -> "Welcher Akkord ist das?"
+                else -> "Welche Akkorde hörst du?"
+            },
+            // The chords themselves are shown on the back, with their numerals.
+            back = if (chordsFound) "" else "Datei: $title",
+            frontAudio = clip,
+            answer = if (chordsFound) answer else emptyList(),
+            created = created,
+            modified = created,
+        )
     }
 
     fun confirmImportPreview() {
@@ -795,6 +810,174 @@ class AppViewModel(
         saveCollection(collection.copy(cards = collection.cards + cards))
         toast(if (cards.size == 1) "1 Übung angelegt" else "${cards.size} Übungen angelegt")
         if (screen !is Screen.Browse) open(Screen.Browse(preview.deckId))
+    }
+
+    // endregion
+
+    // region folders
+
+    val folders: widder.core.FolderAccess? get() = platform.folders
+
+    fun folderLabel(deck: Deck): String? = deck.folder?.let { folders?.describe(it) ?: it }
+
+    /** "Ordner": opens the linked folder; links one first if there is none (the Mac creates it). */
+    fun openFolder(deckId: String) {
+        val f = folders ?: return
+        val deck = deck(deckId) ?: return
+        val path = deck.folder
+        if (path != null) {
+            if (!f.open(path)) toast("Kein Programm zum Öffnen von Ordnern gefunden – ${f.describe(path)}")
+            return
+        }
+        val default = f.defaultFolder(AnswerParser.fileSafe(deck.name))
+        if (default != null) {
+            scope.launch {
+                linkFolderNow(deckId, default)
+                f.open(default)
+            }
+        } else {
+            chooseFolder(deckId)
+        }
+    }
+
+    fun chooseFolder(deckId: String) {
+        folders?.choose { folder -> if (folder != null) scope.launch { linkFolderNow(deckId, folder) } }
+    }
+
+    fun unlinkFolder(deckId: String) {
+        val deck = deck(deckId) ?: return
+        saveCollection(
+            collection.copy(
+                decks = collection.decks.map { if (it.id == deckId) deck.copy(folder = null) else it },
+                cards = collection.cards.map { if (it.deckId == deckId) it.copy(source = null, sourceStamp = 0) else it },
+            ),
+        )
+        toast("Ordner getrennt – die Karten bleiben")
+    }
+
+    fun syncFolder(deckId: String, quiet: Boolean = true) {
+        if (deck(deckId)?.folder == null) return
+        scope.launch { syncFolderNow(deckId, quiet) }
+    }
+
+    /** Gives the starter kits their folder (once) and brings every linked deck up to date. */
+    fun refreshFolders() {
+        scope.launch {
+            linkKitFolders()
+            syncAllFolders()
+        }
+    }
+
+    private suspend fun syncAllFolders() {
+        for (deck in collection.decks.filter { it.folder != null }) syncFolderNow(deck.id, quiet = true)
+    }
+
+    /** Starter kits go into a folder next to the collection, once, where the platform has one. */
+    private suspend fun linkKitFolders() {
+        if (settings.kitFolderLinked) return
+        for (id in listOf(StarterKits.A_CHORDS_ID, StarterKits.A_CARDS_ID)) linkKitFolder(id)
+        if (collection.decks.any { it.id == StarterKits.A_CHORDS_ID || it.id == StarterKits.A_CARDS_ID }) {
+            saveCollection(collection.copy(settings = settings.copy(kitFolderLinked = true)))
+        }
+    }
+
+    private suspend fun linkKitFolder(deckId: String) {
+        val deck = deck(deckId) ?: return
+        if (deck.folder != null) return
+        val folder = folders?.defaultFolder(StarterKits.FOLDER) ?: return
+        linkFolderNow(deckId, folder, quiet = true)
+    }
+
+    /** Links the deck: its cards' audio is written to the folder (a file already there wins), then the folder is read. */
+    private suspend fun linkFolderNow(deckId: String, folder: String, quiet: Boolean = false) {
+        val f = folders ?: return
+        val deck = deck(deckId) ?: return
+        updateDeck(deck.copy(folder = folder))
+        folderLock.withLock {
+            val existing = withContext(work) { f.list(folder) }
+            if (existing == null) {
+                toast("Ordner „${f.describe(folder)}“ ist nicht erreichbar")
+                return
+            }
+            val names = existing.map { it.name }.toMutableSet()
+            val linked = mutableMapOf<String, Card>()
+            for (card in cardsIn(deckId).filter { it.source == null && it.frontAudio != null }) {
+                val clip = card.frontAudio!!
+                val ext = clip.file.substringAfterLast('.', "mid")
+                val base = AnswerParser.fileSafe(if (card.answer.isNotEmpty()) card.answer.joinToString(" ") else clip.name.substringBeforeLast('.'))
+                    .ifEmpty { "Audio" }
+                var name = "$base.$ext"
+                val bytes = store.readMedia(clip.file) ?: continue
+                if (name in names) {
+                    // Already there (e.g. the other starter kit wrote it). The same file is simply
+                    // taken over; a different one wins over the card's audio on the next read.
+                    val same = withContext(work) { f.read(folder, name) }?.contentEquals(bytes) == true
+                    linked[card.id] = card.copy(source = name, sourceStamp = if (same) existing.first { it.name == name }.stamp else 0)
+                    continue
+                }
+                var n = 2
+                while (name in names || linked.values.any { it.source == name }) name = "$base (${n++}).$ext"
+                val written = withContext(work) { f.write(folder, name, bytes) } ?: continue
+                names += written.name
+                linked[card.id] = card.copy(source = written.name, sourceStamp = written.stamp)
+            }
+            if (linked.isNotEmpty()) saveCollection(collection.copy(cards = collection.cards.map { linked[it.id] ?: it }))
+        }
+        syncFolderNow(deckId, quiet)
+    }
+
+    /**
+     * Makes the deck follow its folder: new files become cards, replaced files replace the card's
+     * audio (the learning progress stays), deleted files take their card with them. Cards that
+     * never came from the folder are left alone.
+     */
+    private suspend fun syncFolderNow(deckId: String, quiet: Boolean) = folderLock.withLock {
+        val f = folders ?: return@withLock
+        val deck = deck(deckId) ?: return@withLock
+        val folder = deck.folder ?: return@withLock
+        val listing = withContext(work) { f.list(folder) }
+        if (listing == null) {
+            if (!quiet) toast("Ordner „${f.describe(folder)}“ ist nicht erreichbar – in den Stapel-Optionen neu verbinden")
+            return@withLock
+        }
+        val files = listing.filter { it.name.substringAfterLast('.', "").lowercase().let { e -> e in AUDIO_EXTENSIONS || e in MIDI_EXTENSIONS } }
+        val cards = cardsIn(deckId)
+        val bySource = cards.filter { it.source != null }.associateBy { it.source!! }
+        val present = files.map { it.name }.toSet()
+        // "A7.mid" swapped for "A7.wav": same name, other format - the card and its progress stay.
+        val orphansByStem = cards.filter { it.source != null && it.source !in present }
+            .associateBy { it.source!!.substringBeforeLast('.').lowercase() }.toMutableMap()
+        val now = currentTimeMillis()
+        val added = mutableListOf<Card>()
+        val replaced = mutableMapOf<String, Card>()
+        for ((i, file) in files.sortedBy { it.name.lowercase() }.withIndex()) {
+            val card = bySource[file.name] ?: orphansByStem.remove(file.name.substringBeforeLast('.').lowercase())
+            if (card != null && card.sourceStamp == file.stamp) continue
+            val bytes = withContext(work) { f.read(folder, file.name) } ?: continue
+            val clip = Clip(store.addMedia(file.name, bytes), file.name)
+            if (card == null) {
+                added += cardFromFile(deck, IncomingFile(file.name, bytes), clip, now + i).copy(source = file.name, sourceStamp = file.stamp)
+            } else {
+                card.frontAudio?.let { store.deleteMedia(it.file) }
+                replaced[card.id] = card.copy(frontAudio = clip, source = file.name, sourceStamp = file.stamp, modified = now)
+            }
+        }
+        val removed = cards.filter { it.source != null && it.source !in present && it.id !in replaced }
+        if (added.isEmpty() && replaced.isEmpty() && removed.isEmpty()) {
+            if (!quiet) toast("„${deck.name}“ ist auf dem Stand des Ordners")
+            return@withLock
+        }
+        removed.forEach { deleteClipFiles(it) }
+        val removedIds = removed.map { it.id }.toSet()
+        saveCollection(collection.copy(cards = collection.cards.filter { it.id !in removedIds }.map { replaced[it.id] ?: it } + added))
+        if (removedIds.isNotEmpty()) saveProgress(progress.copy(cards = progress.cards - removedIds))
+        replaced.values.forEach { refreshSessionsFor(it) }
+        val parts = listOfNotNull(
+            added.size.takeIf { it > 0 }?.let { "$it neu" },
+            replaced.size.takeIf { it > 0 }?.let { "$it ersetzt" },
+            removed.size.takeIf { it > 0 }?.let { "$it entfernt" },
+        )
+        toast("${deck.name}: ${parts.joinToString(", ")}")
     }
 
     // endregion
@@ -878,7 +1061,10 @@ class AppViewModel(
     }
 
     fun onResume() {
+        val wasAway = !foreground
         foreground = true
+        // Files may have been swapped in Finder or the file manager meanwhile.
+        if (wasAway && live) scope.launch { syncAllFolders() }
     }
 
     // endregion

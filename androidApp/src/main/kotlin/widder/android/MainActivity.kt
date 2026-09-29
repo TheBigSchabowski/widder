@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
     private val viewModel by lazy {
         // One per process: the activity is not recreated on rotation (see the manifest), and a
         // file shared from another app reaches the running instance through onNewIntent.
-        holder ?: AppViewModel(Store(DirectoryStore(filesDir)), androidAudioSystem(cacheDir), hooks).also { holder = it }
+        holder ?: AppViewModel(Store(DirectoryStore(filesDir)), androidAudioSystem(cacheDir), Hooks).also { holder = it }
     }
 
     private var pendingPick: ((List<IncomingFile>) -> Unit)? = null
@@ -46,29 +46,62 @@ class MainActivity : ComponentActivity() {
         done(listOfNotNull(uri?.let(::read)))
     }
 
+    private var pendingTree: ((Uri?) -> Unit)? = null
+
+    private val openTree = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        pendingTree?.invoke(uri)
+        pendingTree = null
+    }
+
+    private fun pickTree(onResult: (Uri?) -> Unit) {
+        pendingTree = onResult
+        openTree.launch(null)
+    }
+
     private val microphone = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         pendingMic?.invoke(granted)
         pendingMic = null
     }
 
-    private val hooks = object : PlatformHooks {
-        override fun pickFiles(kind: PickKind, onResult: (List<IncomingFile>) -> Unit) {
-            pendingPick = onResult
-            if (kind == PickKind.IMAGE) {
-                openOne.launch(arrayOf("image/*"))
-            } else {
-                // Many file managers label .mid as octet-stream.
-                openMany.launch(arrayOf("audio/*", "application/x-midi", "application/octet-stream"))
+    /**
+     * The view model outlives an activity that Android destroys and recreates; its dialogs always
+     * go to the activity that is showing now.
+     */
+    private object Hooks : PlatformHooks {
+        private var folderAccess: SafFolders? = null
+
+        override val folders: SafFolders?
+            get() = current?.let { activity ->
+                folderAccess ?: SafFolders(activity.applicationContext) { onResult ->
+                    current?.pickTree(onResult) ?: onResult(null)
+                }.also { folderAccess = it }
             }
+
+        override fun pickFiles(kind: PickKind, onResult: (List<IncomingFile>) -> Unit) {
+            current?.pickFiles(kind, onResult) ?: onResult(emptyList())
         }
 
         override fun requestMicrophone(onResult: (Boolean) -> Unit) {
-            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                onResult(true)
-            } else {
-                pendingMic = onResult
-                microphone.launch(Manifest.permission.RECORD_AUDIO)
-            }
+            current?.requestMicrophone(onResult) ?: onResult(false)
+        }
+    }
+
+    private fun pickFiles(kind: PickKind, onResult: (List<IncomingFile>) -> Unit) {
+        pendingPick = onResult
+        if (kind == PickKind.IMAGE) {
+            openOne.launch(arrayOf("image/*"))
+        } else {
+            // Many file managers label .mid as octet-stream.
+            openMany.launch(arrayOf("audio/*", "application/x-midi", "application/octet-stream"))
+        }
+    }
+
+    private fun requestMicrophone(onResult: (Boolean) -> Unit) {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            onResult(true)
+        } else {
+            pendingMic = onResult
+            microphone.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
@@ -111,6 +144,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        current = this
         enableEdgeToEdge()
         setContent {
             val vm = viewModel
@@ -138,7 +172,13 @@ class MainActivity : ComponentActivity() {
         viewModel.onPause()
     }
 
+    override fun onDestroy() {
+        if (current === this) current = null
+        super.onDestroy()
+    }
+
     companion object {
         private var holder: AppViewModel? = null
+        private var current: MainActivity? = null
     }
 }

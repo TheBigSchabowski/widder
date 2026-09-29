@@ -15,6 +15,9 @@ object StarterKits {
     const val A_CHORDS_ID = "startkit-a"
     const val A_CARDS_ID = "startkit-a-karten"
 
+    /** Where the kit's files go on the Mac, next to the collection. */
+    const val FOLDER = "Startkit A-Akkorde"
+
     /** Everything built on A: colours, the inversions of A and Am, octave and power chord. */
     val A_CHORDS = listOf("Am(add9)", "Amaj(add9)", "A7", "Amaj7", "Am/C", "Am/E", "Amaj", "A/C#", "A/E", "A-Oktave", "A5")
 

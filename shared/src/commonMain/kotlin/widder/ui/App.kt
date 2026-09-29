@@ -14,7 +14,7 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
     WidderTheme {
         // Learning time only counts while the window has the focus.
         val focused = LocalWindowInfo.current.isWindowFocused
-        LaunchedEffect(focused) { vm.foreground = focused }
+        LaunchedEffect(focused) { if (focused) vm.onResume() else vm.foreground = false }
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Box(modifier.fillMaxSize()) {
                 when (val s = vm.screen) {

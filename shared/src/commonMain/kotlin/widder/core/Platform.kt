@@ -38,3 +38,32 @@ class IncomingFile(val name: String, val bytes: ByteArray) {
 }
 
 enum class PickKind { AUDIO, IMAGE }
+
+/** A file in a deck's folder; [stamp] changes whenever the file does (modified time and size). */
+class FolderFile(val name: String, val stamp: Long)
+
+/**
+ * Folders the user can reach with Finder or a file manager, that a deck mirrors. A folder is
+ * identified by a platform string: a path on the Mac, a document-tree URI on Android.
+ */
+interface FolderAccess {
+    /** The files in [folder], or null when it cannot be read (gone, no permission). */
+    fun list(folder: String): List<FolderFile>?
+
+    fun read(folder: String, name: String): ByteArray?
+
+    /** Writes (or replaces) a file; returns it as listed afterwards. */
+    fun write(folder: String, name: String, bytes: ByteArray): FolderFile?
+
+    /** A folder the app may create on its own for [name] (the Mac: next to the collection), or null. */
+    fun defaultFolder(name: String): String?
+
+    /** Lets the user pick a folder; [onResult] gets it, or null if cancelled. */
+    fun choose(onResult: (String?) -> Unit)
+
+    /** Shows the folder in Finder / the file manager; false if that is not possible. */
+    fun open(folder: String): Boolean
+
+    /** For display, e.g. "~/Documents/Widder/Startkit A-Akkorde". */
+    fun describe(folder: String): String
+}

@@ -197,6 +197,13 @@ object AnswerParser {
     private val NUMBER = Regex("\\d+")
     private val DASHES = Regex("[-–—]+")
 
+    /** Stands in for "/" in file names. */
+    const val FILE_SLASH = '\u2215'
+
+    /** "Am/C" -> "Am∕C", and characters no file system takes are dropped. */
+    fun fileSafe(name: String): String =
+        name.replace('/', FILE_SLASH).replace(Regex("[\\\\:*?\"<>|]"), "").trim()
+
     fun parse(fileName: String, german: Boolean = false): List<Token> {
         val base = fileName.substringAfterLast('/').substringAfterLast('\\')
         val stem = if ('.' in base && base.substringAfterLast('.').length in 2..4) base.substringBeforeLast('.') else base
@@ -204,7 +211,9 @@ object AnswerParser {
     }
 
     /** Like [parse], for typed text that has no file extension. */
-    fun parseText(stem: String, german: Boolean = false): List<Token> {
+    fun parseText(text: String, german: Boolean = false): List<Token> {
+        // File names cannot contain "/": "Am∕C.mid" uses the division slash instead.
+        val stem = text.replace(FILE_SLASH, '/').replace('\u2044', '/')
         val words = stem.replace(BRACKETS, " ").split(SEPARATORS).map { it.trim() }
             .filter { it.isNotEmpty() && !NUMBER.matches(it) && !DASHES.matches(it) }
         if (words.size == 1) {

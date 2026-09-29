@@ -120,6 +120,7 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                if (vm.folders != null) FolderSection(vm, deck)
                 TextButton({
                     vm.deckDialog = null
                     vm.confirm = Confirm("„${deck.name}“ löschen?", "Alle ${vm.cardsIn(deck.id).size} Karten und ihre Audiodateien werden entfernt.", "Löschen") {
@@ -144,6 +145,32 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
         },
         dismissButton = { TextButton({ vm.deckDialog = null }) { Text("Abbrechen") } },
     )
+}
+
+/** Which folder the deck mirrors, and what can be done with it. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FolderSection(vm: AppViewModel, deck: widder.core.Deck) {
+    Column {
+        Text("Ordner", style = MaterialTheme.typography.titleSmall)
+        val label = vm.folderLabel(deck)
+        Text(
+            label ?: "Nicht verbunden. Mit einem Ordner verbunden wird jede Audio-/MIDI-Datei darin eine Karte; " +
+                "ersetzte Dateien ersetzen das Audio, gelöschte entfernen die Karte.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow {
+            if (label != null) {
+                TextButton({ vm.openFolder(deck.id) }) { Text("Öffnen") }
+                TextButton({ vm.syncFolder(deck.id, quiet = false) }) { Text("Neu einlesen") }
+                TextButton({ vm.chooseFolder(deck.id) }) { Text("Anderer Ordner") }
+                TextButton({ vm.unlinkFolder(deck.id) }) { Text("Trennen", color = MaterialTheme.colorScheme.error) }
+            } else {
+                TextButton({ vm.openFolder(deck.id) }) { Text("Ordner anlegen / verbinden") }
+            }
+        }
+    }
 }
 
 @Composable

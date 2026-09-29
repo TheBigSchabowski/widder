@@ -276,7 +276,9 @@ object MidiAnalysis {
      */
     fun voice(chord: Chord, start: Double, length: Double, velocity: Int = 90, rootBass: Boolean = true): List<Note> {
         val base = 60 + chord.root % 12 - if (chord.root % 12 > 6) 12 else 0
-        val upper = chord.quality.intervals.map { base + it }
+        // A ninth sits above the triad (A C# E B), not squeezed next to the root; sus2 keeps its second.
+        val hasThird = 3 in chord.quality.intervals || 4 in chord.quality.intervals
+        val upper = chord.quality.intervals.map { base + if (it == 2 && hasThird) 14 else it }.sorted()
         val bassPc = chord.bass ?: chord.root.takeIf { rootBass }
         val bass = bassPc?.let { 36 + it % 12 }
         return (listOfNotNull(bass) + upper).distinct().map { Note(it, start, start + length, velocity) }

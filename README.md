@@ -36,6 +36,27 @@ Verstanden werden u. a. `m min - moll`, `7 maj7 M7 Δ`, `m7 m7b5 ø dim dim7 aug
 Slash-Akkorde (`C/E`) und deutsche Namen (`H`, `Fis`, `Es`, `As`, `Cism`, `Des-Dur`).
 In den Einstellungen: „Deutsche Notennamen“ (B = Bb).
 
+## Ordner: Dateien von außen prüfen und tauschen
+
+Jeder Stapel lässt sich mit einem Ordner verbinden (Knopf „Ordner“ am Stapel, Details in den
+Stapel-Optionen). Der Ordner ist dann die Quelle:
+
+| im Ordner | in Widder |
+|---|---|
+| neue Datei `Dm G C.mid` | neue Karte, Lösung aus dem Namen |
+| Datei durch andere mit gleichem Namen ersetzt (auch `A7.mid` → `A7.wav`) | Audio der Karte ersetzt, Lernstand bleibt |
+| Datei umbenannt | alte Karte weg, neue Karte mit neuer Lösung |
+| Datei gelöscht | Karte entfernt |
+
+Eingelesen wird beim Start, beim Öffnen des Stapels und wenn man zu Widder zurückkehrt – oder
+per „Neu einlesen“. `/` ist in Dateinamen verboten; `Am∕C.mid` (mit dem Divisionsstrich ∕)
+wird als `Am/C` gelesen.
+
+**Startkit:** Auf dem Mac liegen die Dateien automatisch in
+`~/Documents/Widder/Startkit A-Akkorde`. Auf Android „Ordner“ tippen und einen Ordner wählen
+(am besten im Dialog einen neuen anlegen, z. B. `Documents/Widder Startkit`) – Android lässt
+Apps nur in Ordner schreiben, die man selbst ausgesucht hat.
+
 ## Akkorde auf Karteikarten und Stufen
 
 Auch eine Karteikarte kann Akkorde haben (Feld „Akkorde“ im Editor). Sie erscheinen auf der

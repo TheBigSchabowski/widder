@@ -118,6 +118,16 @@ private fun DeckRow(vm: AppViewModel, deck: Deck, color: Color) {
                 )
                 Spacer(Modifier.height(6.dp))
                 CountRow(counts.new, counts.learning, counts.review)
+                vm.folderLabel(deck)?.let {
+                    Text(
+                        "Ordner: $it",
+                        Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             IconButton(Glyph.MORE, "Stapel-Optionen", { vm.deckDialog = DeckDialog.Options(deck.id) })
         }
@@ -130,6 +140,9 @@ private fun DeckRow(vm: AppViewModel, deck: Deck, color: Color) {
             ) { Text(if (deck.kind == DeckKind.CARDS) "Lernen" else "Trainieren", fontWeight = FontWeight.SemiBold) }
             OutlinedButton(onClick = { vm.open(Screen.Browse(deck.id)) }) {
                 Text(if (deck.kind == DeckKind.CARDS) "Karten" else "Übungen")
+            }
+            if (vm.folders != null) {
+                OutlinedButton(onClick = { vm.openFolder(deck.id) }) { Text("Ordner") }
             }
         }
     }
@@ -146,6 +159,8 @@ fun BrowseScreen(vm: AppViewModel, deckId: String) {
             .any { it.contains(query.trim(), ignoreCase = true) }
     }.sortedBy { it.created }
     val counts = vm.counts(deck)
+    // Files may have changed in the folder since the deck was last looked at.
+    androidx.compose.runtime.LaunchedEffect(deckId) { vm.syncFolder(deckId) }
     Column(Modifier.fillMaxSize()) {
         TopBar(deck.name, vm::back, subtitle = if (deck.kind == DeckKind.CARDS) "${vm.cardsIn(deckId).size} Karten" else "${vm.cardsIn(deckId).size} Übungen") {
             SmallButton("Importieren", { vm.pickImport(deckId) }, color = color)
