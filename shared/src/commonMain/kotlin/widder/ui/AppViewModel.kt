@@ -297,6 +297,7 @@ class AppViewModel(
             backAudio = e.backAudio,
             answer = e.answer.split(Regex("[\\s,]+")).filter { it.isNotBlank() },
             key = e.key.trim().ifEmpty { null },
+            label = e.label.trim().ifEmpty { null },
             tags = e.tags.split(Regex("\\s+")).filter { it.isNotBlank() },
             modified = now,
         )
@@ -404,6 +405,23 @@ class AppViewModel(
             }
             if (playingKey != key) return@launch
             audio.player.play(pcm) { scope.launch { if (playingKey == key) playingKey = null } }
+        }
+    }
+
+    /**
+     * Saves a clip where the user wants it: [asHeard] renders it with all edits to a WAV (a MIDI
+     * file becomes audio that way), otherwise the original file is saved as it is.
+     */
+    fun downloadClip(clip: Clip, asHeard: Boolean) {
+        scope.launch {
+            val stem = clip.name.substringBeforeLast('.')
+            val (name, bytes) = if (asHeard) {
+                val pcm = renderedPcm(clip) ?: return@launch toast("„${clip.name}“ lässt sich nicht abspielen")
+                "$stem.wav" to withContext(work) { Wav.write(pcm) }
+            } else {
+                clip.name to (store.readMedia(clip.file) ?: return@launch toast("Datei fehlt"))
+            }
+            platform.saveFile(AnswerParser.fileSafe(name), bytes) { where -> if (where != null) scope.launch { toast("Gespeichert: $where") } }
         }
     }
 

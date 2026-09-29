@@ -46,6 +46,22 @@ class MainActivity : ComponentActivity() {
         done(listOfNotNull(uri?.let(::read)))
     }
 
+    private var pendingSave: Pair<ByteArray, (String?) -> Unit>? = null
+
+    // octet-stream: the name the user keeps ("A7.wav", "A7.mid") decides the type.
+    private val createDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        val (bytes, onDone) = pendingSave ?: return@registerForActivityResult
+        pendingSave = null
+        if (uri == null) return@registerForActivityResult onDone(null)
+        val ok = runCatching { contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) } }.isSuccess
+        onDone(if (ok) displayName(uri) else null)
+    }
+
+    private fun saveFile(suggestedName: String, bytes: ByteArray, onDone: (String?) -> Unit) {
+        pendingSave = bytes to onDone
+        createDocument.launch(suggestedName)
+    }
+
     private var pendingTree: ((Uri?) -> Unit)? = null
 
     private val openTree = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -83,6 +99,10 @@ class MainActivity : ComponentActivity() {
 
         override fun requestMicrophone(onResult: (Boolean) -> Unit) {
             current?.requestMicrophone(onResult) ?: onResult(false)
+        }
+
+        override fun saveFile(suggestedName: String, bytes: ByteArray, onDone: (String?) -> Unit) {
+            current?.saveFile(suggestedName, bytes, onDone) ?: onDone(null)
         }
     }
 

@@ -63,10 +63,15 @@ fun ReviewScreen(vm: AppViewModel) {
                         if (session.showAnswer) {
                             HorizontalDivider(Modifier.padding(vertical = 22.dp))
                             Side(vm, card.back, card.backAudio, ClipTarget.StoredCard(card.id, back = true), "review-back")
-                            if (card.answer.isNotEmpty()) {
+                            val label = card.label
+                            if (label != null || card.answer.isNotEmpty()) {
                                 Spacer(Modifier.height(16.dp))
                                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                    ChordChips(vm, vm.tokensOf(card), vm.keyFor(card), large = true)
+                                    if (label != null) {
+                                        Chip(label, Palette.chords, large = true)
+                                    } else {
+                                        ChordChips(vm, vm.tokensOf(card), vm.keyFor(card), large = true)
+                                    }
                                 }
                             }
                         }

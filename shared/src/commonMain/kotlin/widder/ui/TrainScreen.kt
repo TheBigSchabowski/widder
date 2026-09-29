@@ -109,7 +109,9 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
     // Children get what they show as parameters, so they redraw too.
     check(session.version >= 0)
     val drag = remember(round) { DragState() }
-    val key = session.card?.let { vm.keyFor(it) }
+    // A card with a text of its own ("Son Clave") has no key: no numerals, the text comes after checking.
+    val cardLabel = session.card?.label
+    val key = session.card?.takeIf { cardLabel == null }?.let { vm.keyFor(it) }
     val label: (Tile) -> Pair<String, String?> = { tile ->
         val numeral = vm.numeral(tile.token, key)
         when {
@@ -169,6 +171,10 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                     round.slots.forEachIndexed { i, tile ->
                         Slot(i, tile, round.result?.getOrNull(i), round, drag, vm, label)
                     }
+                }
+                if (round.checked && cardLabel != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Chip(cardLabel, Palette.chords, large = true)
                 }
                 if (round.checked && !round.correct) {
                     Spacer(Modifier.height(14.dp))

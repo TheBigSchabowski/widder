@@ -217,7 +217,11 @@ private fun CardRow(vm: AppViewModel, card: Card, deck: Deck, color: Color) {
             Column(Modifier.weight(1f)) {
                 val title = card.front.ifBlank { card.frontAudio?.name ?: "(leer)" }
                 Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium, color = if (suspended) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                if (deck.kind == DeckKind.CHORDS && card.answer.isEmpty()) {
+                val label = card.label
+                if (label != null) {
+                    Spacer(Modifier.height(6.dp))
+                    Chip(label, Palette.chords)
+                } else if (deck.kind == DeckKind.CHORDS && card.answer.isEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     Chip("Lösung fehlt", Palette.again)
                 } else if (card.answer.isNotEmpty()) {

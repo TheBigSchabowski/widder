@@ -79,6 +79,11 @@ data class Card(
     val answer: List<String> = emptyList(),
     /** Key for the roman numerals; null = the deck's key, or recognised from the chords. */
     val key: String? = null,
+    /**
+     * Free text shown instead of the chords and numerals, for what has no key or no chords
+     * ("Son Clave 3-2"). The chords still count in the training.
+     */
+    val label: String? = null,
     /** The file in the deck's folder this card comes from; the card follows that file. */
     val source: String? = null,
     /** The file's stamp when it was last read in; a different one means it was replaced. */

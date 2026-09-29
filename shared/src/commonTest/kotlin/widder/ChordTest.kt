@@ -74,6 +74,10 @@ class ChordTest {
         assertEquals(texts("FminGmin.wav"), listOf("Fmin", "Gmin"))
         assertEquals(texts("Cmaj7.wav"), listOf("Cmaj7"))
         assertEquals(texts("Quinte Terz.wav"), listOf("Quinte", "Terz"))
+        assertEquals(texts("Am(add9).mid"), listOf("Am(add9)"))
+        assertEquals(texts("Am∕C Am∕E Am(add9).mid"), listOf("Am/C", "Am/E", "Am(add9)"))
+        assertEquals(texts("A D G F(2).wav"), listOf("A", "D", "G", "F"))
+        assertEquals(texts("Son Clave [live].wav"), listOf("Son", "Clave"))
     }
 
     @Test

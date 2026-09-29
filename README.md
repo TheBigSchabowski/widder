@@ -69,6 +69,13 @@ Akkorden einer Karte; nur welche Akkorde vorkommen zählt, nicht die Reihenfolge
 Training die „I“-Kachel verraten, was zuerst kommt. Festlegen lässt sie sich pro Stapel
 (Stapel-Optionen) oder Karte. In den Einstellungen: Stufen aus / „I (A)“ / nur „I“.
 
+Für alles ohne Akkorde oder feste Tonart gibt es das Feld **„Eigener Text statt Akkorden und
+Stufen“** (z. B. `Son Clave 3-2`): Ist es ausgefüllt, zeigt die Karte diesen Text statt der
+Akkord-Chips; im Training erscheint er nach dem Prüfen, die Stufen fallen weg.
+
+Jedes Audio lässt sich per **„Herunterladen“** speichern – als WAV so wie es klingt (mit Schnitt
+und Effekten, MIDI wird dabei zu Audio) oder als Originaldatei.
+
 ## Audio-Editor („Schneiden & Effekte“)
 
 Nicht-destruktiv – die Originaldatei bleibt unverändert, alles ist später wieder änderbar,

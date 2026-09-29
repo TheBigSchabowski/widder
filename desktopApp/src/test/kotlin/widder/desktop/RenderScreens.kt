@@ -116,6 +116,19 @@ fun main() {
         session.version++
         vm.placeTile(session.round!!.pool.first { it.token.text == "Amaj" }, 0)
     }
+    render("editor-beschriftung") { vm ->
+        vm.editCard(vm.cardsIn(widder.ui.StarterKits.A_CARDS_ID).first())
+        vm.editor!!.label = "Son Clave 3-2"
+    }
+    render("karte-beschriftung") { vm ->
+        val card = vm.cardsIn(widder.ui.StarterKits.A_CARDS_ID).first()
+        vm.editCard(card)
+        vm.editor!!.label = "Son Clave 3-2"
+        vm.saveEditor()
+        vm.home()
+        vm.startReview(widder.ui.StarterKits.A_CARDS_ID)
+        vm.showAnswer()
+    }
     render("karte-akkord") { vm ->
         vm.startReview(widder.ui.StarterKits.A_CARDS_ID)
         vm.showAnswer()

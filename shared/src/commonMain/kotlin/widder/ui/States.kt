@@ -37,6 +37,9 @@ interface PlatformHooks {
     /** The Mac takes files dropped onto the window; the hint is only shown there. */
     val canDropFiles: Boolean get() = false
 
+    /** Asks where to save [bytes] (named [suggestedName]); [onDone] gets where it went, or null. */
+    fun saveFile(suggestedName: String, bytes: ByteArray, onDone: (String?) -> Unit) = onDone(null)
+
     /** Folders the user can see; null where decks cannot be linked to one. */
     val folders: widder.core.FolderAccess? get() = null
 }
@@ -61,6 +64,7 @@ class CardEditor(val original: Card?, val deckId: String, val kind: DeckKind) {
     var answer by mutableStateOf(original?.answer?.joinToString(" ") ?: "")
     var tags by mutableStateOf(original?.tags?.joinToString(" ") ?: "")
     var key by mutableStateOf(original?.key ?: "")
+    var label by mutableStateOf(original?.label ?: "")
 
     fun clip(back: Boolean): Clip? = if (back) backAudio else frontAudio
     fun setClip(back: Boolean, clip: Clip?) {

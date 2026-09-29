@@ -1,6 +1,14 @@
 package widder.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.draw.alpha
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -52,6 +60,7 @@ fun EditorScreen(vm: AppViewModel) {
                     SectionTitle("Akkorde (optional)")
                     OutlinedTextField(e.answer, { e.answer = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("z. B. Am F C G – erscheinen auf der Rückseite") })
                     ChordPreview(vm, color, canGenerate = true)
+                    LabelField(vm)
                     SectionTitle("Schlagwörter")
                     OutlinedTextField(e.tags, { e.tags = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("durch Leerzeichen getrennt") })
                 } else {
@@ -66,6 +75,7 @@ fun EditorScreen(vm: AppViewModel) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    LabelField(vm)
                     SectionTitle("Titel (nur in der Übersicht)")
                     OutlinedTextField(e.front, { e.front = it }, Modifier.fillMaxWidth(), singleLine = true)
                 }
@@ -95,20 +105,47 @@ private fun ChordPreview(vm: AppViewModel, color: Color, canGenerate: Boolean) {
     val tokens = vm.editorTokens()
     if (tokens.isEmpty()) return
     val key = vm.editorKey()
+    val labelled = e.label.isNotBlank()
     Spacer(Modifier.height(8.dp))
-    ChordChips(vm, tokens, key)
+    // With a text of its own the card shows that instead of the chips; they stay visible here, faded.
+    Box(Modifier.alpha(if (labelled) 0.4f else 1f)) { ChordChips(vm, tokens, key) }
     Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(
-            e.key,
-            { e.key = it },
-            Modifier.weight(1f),
-            singleLine = true,
-            label = { Text("Tonart für die Stufen") },
-            placeholder = { Text(vm.keyName(key)?.let { "$it (erkannt)" } ?: "z. B. A oder fis-Moll") },
-        )
+        if (!labelled) {
+            OutlinedTextField(
+                e.key,
+                { e.key = it },
+                Modifier.weight(1f),
+                singleLine = true,
+                label = { Text("Tonart für die Stufen") },
+                placeholder = { Text(vm.keyName(key)?.let { "$it (erkannt)" } ?: "z. B. A oder fis-Moll") },
+            )
+        } else {
+            Spacer(Modifier.weight(1f))
+        }
         if (canGenerate && tokens.all { it.chord != null }) {
             Spacer(Modifier.width(8.dp))
             SmallButton(if (e.frontAudio == null) "Als Audio erzeugen" else "Audio neu erzeugen", vm::generateChordAudio, color = color)
+        }
+    }
+}
+
+/** Free text that the card shows instead of chords and numerals ("Son Clave 3-2"). */
+@Composable
+private fun LabelField(vm: AppViewModel) {
+    val e = vm.editor ?: return
+    OutlinedTextField(
+        e.label,
+        { e.label = it },
+        Modifier.fillMaxWidth().padding(top = 10.dp),
+        singleLine = true,
+        label = { Text("Eigener Text statt Akkorden und Stufen") },
+        placeholder = { Text("z. B. Son Clave 3-2 – leer lassen für die Akkorde") },
+    )
+    if (e.label.isNotBlank()) {
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Auf der Karte: ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Chip(e.label.trim(), Palette.chords)
         }
     }
 }
@@ -145,6 +182,7 @@ fun AudioSlot(vm: AppViewModel, target: ClipTarget, clip: Clip?, color: Color) {
             SmallButton("Schneiden & Effekte", { vm.openAudioEditor(target) }, color = color)
             SmallButton("Ersetzen", { vm.pickAudio(target) }, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SmallButton("Aufnehmen", { vm.startRecording(target) }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            DownloadButton(vm, clip)
             SmallButton("Entfernen", { vm.removeClip(target) }, color = MaterialTheme.colorScheme.error)
         }
     }
@@ -161,4 +199,33 @@ fun describe(edit: AudioEdit, midi: Boolean): String {
     if (edit.reverbMix > 0) parts += "Hall ${(edit.reverbMix * 100).roundToInt()} %"
     if (edit.lowCut > 0 || edit.highCut > 0) parts += "Filter"
     return if (parts.isEmpty() || parts == listOf("MIDI")) (parts + "unbearbeitet").joinToString(" · ") else parts.joinToString(" · ")
+}
+
+/**
+ * Saves the clip. A MIDI file or an edited clip can go out as heard (WAV with all effects) or as
+ * the original file, so a small menu asks; otherwise the file is saved straight away.
+ */
+@Composable
+fun DownloadButton(vm: AppViewModel, clip: Clip) {
+    var open by remember { mutableStateOf(false) }
+    val choice = clip.isMidi || !clip.edit.isNeutral
+    Box {
+        SmallButton("Herunterladen", { if (choice) open = true else vm.downloadClip(clip, asHeard = false) }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        DropdownMenu(open, { open = false }) {
+            DropdownMenuItem(
+                text = { Text("Als WAV, so wie es klingt") },
+                onClick = {
+                    open = false
+                    vm.downloadClip(clip, asHeard = true)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(if (clip.isMidi) "Original-MIDI (.mid)" else "Originaldatei, unbearbeitet") },
+                onClick = {
+                    open = false
+                    vm.downloadClip(clip, asHeard = false)
+                },
+            )
+        }
+    }
 }

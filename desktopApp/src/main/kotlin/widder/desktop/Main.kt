@@ -136,6 +136,17 @@ private class DesktopHooks(dataDir: File) : PlatformHooks {
 
     override val canDropFiles: Boolean = true
 
+    override fun saveFile(suggestedName: String, bytes: ByteArray, onDone: (String?) -> Unit) {
+        val dialog = FileDialog(null as Frame?, "Audio speichern", FileDialog.SAVE)
+        dialog.directory = File(System.getProperty("user.home"), "Downloads").takeIf { it.isDirectory }?.path ?: lastDir
+        dialog.file = suggestedName
+        dialog.isVisible = true
+        val name = dialog.file ?: return onDone(null)
+        val file = File(dialog.directory, name)
+        file.writeBytes(bytes)
+        onDone(file.path.replaceFirst(System.getProperty("user.home"), "~"))
+    }
+
     override fun pickFiles(kind: PickKind, onResult: (List<IncomingFile>) -> Unit) {
         val dialog = FileDialog(null as Frame?, if (kind == PickKind.IMAGE) "Bild wählen" else "Audio- oder MIDI-Dateien wählen", FileDialog.LOAD)
         dialog.directory = lastDir

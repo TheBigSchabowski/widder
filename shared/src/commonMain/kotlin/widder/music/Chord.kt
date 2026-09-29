@@ -192,7 +192,9 @@ data class Token(val text: String, val chord: Chord?) {
  */
 object AnswerParser {
     // Escaped fully: Android's ICU regex rejects "[^]]" and a bare "}".
-    private val BRACKETS = Regex("\\([^)]*\\)|\\[[^\\]]*\\]|\\{[^}]*\\}")
+    // Only brackets that stand on their own ("Take (2)", "[live]") or hold a bare number ("F(2)");
+    // "Am(add9)" keeps its "(add9)".
+    private val BRACKETS = Regex("\\(\\d+\\)|(^|(?<=\\s))(\\([^)]*\\)|\\[[^\\]]*\\]|\\{[^}]*\\})")
     private val SEPARATORS = Regex(" - |–|—|[\\s_,;|+]+")
     private val NUMBER = Regex("\\d+")
     private val DASHES = Regex("[-–—]+")
