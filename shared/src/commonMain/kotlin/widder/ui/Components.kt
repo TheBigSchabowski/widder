@@ -204,14 +204,19 @@ private fun CountBadge(n: Int, color: Color, label: String) {
 }
 
 @Composable
-fun Chip(text: String, color: Color, filled: Boolean = false, modifier: Modifier = Modifier) {
+fun Chip(text: String, color: Color, filled: Boolean = false, modifier: Modifier = Modifier, large: Boolean = false) {
     Box(
         modifier.clip(RoundedCornerShape(8.dp))
             .background(if (filled) color else color.copy(alpha = 0.14f))
             .border(1.dp, color.copy(alpha = if (filled) 0f else 0.5f), RoundedCornerShape(8.dp))
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .padding(horizontal = if (large) 14.dp else 8.dp, vertical = if (large) 8.dp else 3.dp),
     ) {
-        Text(text, color = if (filled) Color.White else color, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+        Text(
+            text,
+            color = if (filled) Color.White else color,
+            style = if (large) MaterialTheme.typography.titleLarge else MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 

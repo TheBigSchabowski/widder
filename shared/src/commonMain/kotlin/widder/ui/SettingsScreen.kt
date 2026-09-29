@@ -79,6 +79,18 @@ fun SettingsScreen(vm: AppViewModel) {
                     SwitchRow("Deutsche Notennamen", "H = B-natürlich, B = B-Dur/Bb. Aus: B ist H. „H“, „Fis“, „Es“ versteht Widder immer.", s.germanNotation) { on ->
                         vm.updateSettings { it.copy(germanNotation = on) }
                     }
+                    Label("Stufen (römische Zahlen)")
+                    Choices(
+                        widder.core.NumeralMode.entries,
+                        s.numerals,
+                        { when (it) { widder.core.NumeralMode.OFF -> "aus"; widder.core.NumeralMode.WITH_NAME -> "I (A)"; widder.core.NumeralMode.ONLY -> "nur I" } },
+                    ) { mode -> vm.updateSettings { it.copy(numerals = mode) } }
+                    Text(
+                        "Die Tonart erkennt Widder aus den Akkorden einer Karte; festlegen lässt sie sich pro Stapel oder Karte.",
+                        Modifier.padding(top = 6.dp, bottom = 6.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     SwitchRow("Moll als „min“ schreiben", "Wenn Widder selbst Akkorde benennt (MIDI-Erkennung): Fmin statt Fm", s.minorAsMin) { on ->
                         vm.updateSettings { it.copy(minorAsMin = on) }
                     }

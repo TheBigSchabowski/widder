@@ -57,6 +57,7 @@ class CardEditor(val original: Card?, val deckId: String, val kind: DeckKind) {
     var backAudio by mutableStateOf(original?.backAudio)
     var answer by mutableStateOf(original?.answer?.joinToString(" ") ?: "")
     var tags by mutableStateOf(original?.tags?.joinToString(" ") ?: "")
+    var key by mutableStateOf(original?.key ?: "")
 
     fun clip(back: Boolean): Clip? = if (back) backAudio else frontAudio
     fun setClip(back: Boolean, clip: Clip?) {

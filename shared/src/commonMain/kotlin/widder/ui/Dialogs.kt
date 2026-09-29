@@ -93,6 +93,7 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
     var newPerDay by remember { mutableStateOf(deck.newPerDay.toString()) }
     var reviewsPerDay by remember { mutableStateOf(deck.reviewsPerDay.toString()) }
     var distractors by remember { mutableStateOf(deck.distractors) }
+    var key by remember { mutableStateOf(deck.key ?: "") }
     AlertDialog(
         onDismissRequest = { vm.deckDialog = null },
         title = { Text("Stapel-Optionen") },
@@ -103,6 +104,13 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
                     OutlinedTextField(newPerDay, { newPerDay = it.filter(Char::isDigit).take(4) }, Modifier.weight(1f), label = { Text("Neue / Tag") }, singleLine = true)
                     OutlinedTextField(reviewsPerDay, { reviewsPerDay = it.filter(Char::isDigit).take(5) }, Modifier.weight(1f), label = { Text("Wiederh. / Tag") }, singleLine = true)
                 }
+                OutlinedTextField(
+                    key,
+                    { key = it },
+                    label = { Text("Tonart für die Stufen") },
+                    placeholder = { Text("leer = aus den Akkorden erkennen") },
+                    singleLine = true,
+                )
                 if (deck.kind == DeckKind.CHORDS) {
                     Text("Falsche Zusatz-Akkorde im Vorrat: $distractors", style = MaterialTheme.typography.bodyMedium)
                     Slider(distractors.toFloat(), { distractors = it.roundToInt() }, valueRange = 0f..4f, steps = 3)
@@ -129,6 +137,7 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
                         newPerDay = newPerDay.toIntOrNull() ?: deck.newPerDay,
                         reviewsPerDay = reviewsPerDay.toIntOrNull() ?: deck.reviewsPerDay,
                         distractors = distractors,
+                        key = key.trim().ifEmpty { null },
                     ),
                 )
             }) { Text("Speichern") }

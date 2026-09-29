@@ -17,6 +17,8 @@ data class Deck(
     val distractors: Int = 0,
     /** Chord training only: where the wrong tiles come from; empty = chords close to the answer. */
     val pool: List<String> = emptyList(),
+    /** Key for the roman numerals, e.g. "A" or "fis-Moll"; null = recognised from each card's chords. */
+    val key: String? = null,
     val created: Long = 0,
 )
 
@@ -68,8 +70,13 @@ data class Card(
     val back: String = "",
     val frontAudio: Clip? = null,
     val backAudio: Clip? = null,
-    /** Chord training: the tokens to be put in order, as written (e.g. "Fmin", "Gmin"). */
+    /**
+     * The chords of the card, as written (e.g. "Fmin", "Gmin"). In chord training they are put in
+     * order; on a flash card they are shown on the back with their roman numerals.
+     */
     val answer: List<String> = emptyList(),
+    /** Key for the roman numerals; null = the deck's key, or recognised from the chords. */
+    val key: String? = null,
     val tags: List<String> = emptyList(),
     val created: Long = 0,
     val modified: Long = 0,
@@ -95,8 +102,13 @@ data class Settings(
     /** Minor chords written as "Fmin" instead of "Fm" when the app names chords itself. */
     val minorAsMin: Boolean = false,
     val autoplay: Boolean = true,
+    /** How chords are labelled: name only, roman numeral with the name "I (A)", or numeral only. */
+    val numerals: NumeralMode = NumeralMode.WITH_NAME,
     val reward: RewardSettings = RewardSettings(),
 )
+
+@Serializable
+enum class NumeralMode { OFF, WITH_NAME, ONLY }
 
 @Serializable
 data class Collection(

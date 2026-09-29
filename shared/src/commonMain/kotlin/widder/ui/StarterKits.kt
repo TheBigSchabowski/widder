@@ -13,6 +13,7 @@ import widder.music.MidiAnalysis
 /** Ready-made chord trainings, rendered by the built-in synth. */
 object StarterKits {
     const val A_CHORDS_ID = "startkit-a"
+    const val A_CARDS_ID = "startkit-a-karten"
 
     /** Everything built on A: colours, the inversions of A and Am, octave and power chord. */
     val A_CHORDS = listOf("Am(add9)", "Amaj(add9)", "A7", "Amaj7", "Am/C", "Am/E", "Amaj", "A/C#", "A/E", "A-Oktave", "A5")
@@ -25,10 +26,32 @@ object StarterKits {
         listOf("Amaj", "A/C#", "A/E"),
     )
 
+    /** The same chords as flash cards: hear it, think, turn over, grade yourself. */
+    fun aChordCards(store: Store): Pair<Deck, List<Card>> {
+        val now = currentTimeMillis()
+        val deck = Deck(A_CARDS_ID, "Startkit: A-Akkorde (Karten)", DeckKind.CARDS, created = now)
+        val cards = A_CHORDS.mapIndexed { i, name ->
+            val chord = requireNotNull(Chord.parse(name)) { name }
+            val bytes = Midi.write(MidiAnalysis.progression(listOf(chord), secondsPerChord = 1.8, rootBass = false), bpm = 100)
+            Card(
+                "$A_CARDS_ID-$i",
+                deck.id,
+                front = "Welcher Akkord ist das?",
+                frontAudio = Clip(store.addMedia("$name.mid", bytes), "$name.mid"),
+                answer = listOf(name),
+                // Counted in A major, so Am/C reads i/3 and A/E reads I/5.
+                key = "A",
+                created = now + i,
+                modified = now,
+            )
+        }
+        return deck to cards
+    }
+
     fun aChords(store: Store): Pair<Deck, List<Card>> {
         val now = currentTimeMillis()
         // Three wrong tiles from the kit itself: telling A7 from Amaj7 is the point.
-        val deck = Deck(A_CHORDS_ID, "Startkit: A-Akkorde", DeckKind.CHORDS, distractors = 3, pool = A_CHORDS, created = now)
+        val deck = Deck(A_CHORDS_ID, "Startkit: A-Akkorde", DeckKind.CHORDS, distractors = 3, pool = A_CHORDS, key = "A", created = now)
         val exercises = A_CHORDS.map { listOf(it) } + SEQUENCES
         val cards = exercises.mapIndexed { i, answer ->
             val chords = answer.map { requireNotNull(Chord.parse(it)) { it } }

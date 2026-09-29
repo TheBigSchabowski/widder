@@ -109,6 +109,15 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
     // Children get what they show as parameters, so they redraw too.
     check(session.version >= 0)
     val drag = remember(round) { DragState() }
+    val key = session.card?.let { vm.keyFor(it) }
+    val label: (Tile) -> Pair<String, String?> = { tile ->
+        val numeral = vm.numeral(tile.token, key)
+        when {
+            numeral == null -> tile.token.text to null
+            vm.settings.numerals == widder.core.NumeralMode.ONLY -> numeral to null
+            else -> tile.token.text to numeral
+        }
+    }
     var origin by remember { mutableStateOf(Offset.Zero) }
     val playing = vm.playingKey == "train"
     Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }) {
@@ -142,6 +151,14 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                     },
                     textAlign = TextAlign.Center,
                 )
+                if (key != null && vm.settings.numerals != widder.core.NumeralMode.OFF) {
+                    Text(
+                        "Stufen in ${vm.keyName(key)}",
+                        Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(Modifier.height(16.dp))
 
                 // The slots, in order.
@@ -150,7 +167,7 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     round.slots.forEachIndexed { i, tile ->
-                        Slot(i, tile, round.result?.getOrNull(i), round, drag, vm)
+                        Slot(i, tile, round.result?.getOrNull(i), round, drag, vm, label)
                     }
                 }
                 if (round.checked && !round.correct) {
@@ -158,7 +175,7 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                     Text("Richtig wäre:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
-                        round.answer.forEach { Chip(it.text, Palette.good) }
+                        round.answer.forEach { Chip(vm.chordLabel(it, key), Palette.good) }
                     }
                 }
 
@@ -180,7 +197,7 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        pool.forEach { tile -> DraggableTile(tile, round, drag, vm, inSlot = false, enabled = !round.checked) }
+                        pool.forEach { tile -> DraggableTile(tile, round, drag, vm, inSlot = false, enabled = !round.checked, label = label(tile)) }
                     }
                 }
                 Spacer(Modifier.height(20.dp))
@@ -199,7 +216,7 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                     .size(with(density) { drag.tileSize.width.toDp() }, with(density) { drag.tileSize.height.toDp() })
                     .scale(1.08f),
             ) {
-                TileFace(dragged.token.text, Palette.chords, lifted = true, fill = true)
+                TileFace(label(dragged), Palette.chords, lifted = true, fill = true)
             }
         }
     }
@@ -228,7 +245,15 @@ private fun ListenButton(playing: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Slot(index: Int, tile: Tile?, result: Boolean?, round: ChordRound, drag: DragState, vm: AppViewModel) {
+private fun Slot(
+    index: Int,
+    tile: Tile?,
+    result: Boolean?,
+    round: ChordRound,
+    drag: DragState,
+    vm: AppViewModel,
+    label: (Tile) -> Pair<String, String?>,
+) {
     val hovering = drag.tile != null && drag.slotAt(drag.pointer) == index
     val borderColor = when {
         result == true -> Palette.good
@@ -247,7 +272,7 @@ private fun Slot(index: Int, tile: Tile?, result: Boolean?, round: ChordRound, d
         if (tile == null) {
             Text("${index + 1}", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontSize = 18.sp)
         } else {
-            DraggableTile(tile, round, drag, vm, inSlot = true, enabled = !round.checked, resultColor = result?.let { if (it) Palette.good else Palette.again })
+            DraggableTile(tile, round, drag, vm, inSlot = true, enabled = !round.checked, label = label(tile), resultColor = result?.let { if (it) Palette.good else Palette.again })
         }
     }
 }
@@ -260,6 +285,7 @@ private fun DraggableTile(
     vm: AppViewModel,
     inSlot: Boolean,
     enabled: Boolean,
+    label: Pair<String, String?>,
     resultColor: Color? = null,
 ) {
     var bounds by remember { mutableStateOf(Rect.Zero) }
@@ -291,18 +317,25 @@ private fun DraggableTile(
             }
             .clickable(enabled = enabled, onClickLabel = if (inSlot) "Zurücklegen" else "Einsetzen") { vm.tapTile(tile) },
     ) {
-        TileFace(tile.token.text, resultColor ?: Palette.chords, lifted = false, fill = false)
+        TileFace(label, resultColor ?: Palette.chords, lifted = false, fill = false)
     }
 }
 
+/** A tile: the chord name, and above it its roman numeral when those are shown. */
 @Composable
-private fun TileFace(text: String, color: Color, lifted: Boolean, fill: Boolean) {
+private fun TileFace(label: Pair<String, String?>, color: Color, lifted: Boolean, fill: Boolean) {
+    val (text, numeral) = label
     Box(
         (if (fill) Modifier.fillMaxSize() else Modifier.fillMaxHeight().widthIn(min = 84.dp)).let { if (lifted) it.shadow(10.dp, RoundedCornerShape(14.dp)) else it }
             .clip(RoundedCornerShape(14.dp)).background(color).padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp, maxLines = 1)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (numeral != null) {
+                Text(numeral, color = Color.White.copy(alpha = 0.85f), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1)
+            }
+            Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = if (numeral != null) 20.sp else 22.sp, maxLines = 1)
+        }
     }
 }
 

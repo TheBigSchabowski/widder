@@ -62,6 +62,10 @@ object DemoContent {
             )
         }
         val (kitDeck, kitCards) = StarterKits.aChords(store)
-        return Collection(decks = listOf(cardsDeck, chordDeck, kitDeck), cards = cards + kitCards)
+        val (kitCardDeck, kitCardCards) = StarterKits.aChordCards(store)
+        return Collection(
+            decks = listOf(cardsDeck, kitCardDeck, chordDeck, kitDeck),
+            cards = cards + kitCardCards + kitCards,
+        )
     }
 }

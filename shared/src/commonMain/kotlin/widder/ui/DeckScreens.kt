@@ -70,16 +70,19 @@ fun DecksScreen(vm: AppViewModel, kind: DeckKind) {
                     }
                 }
                 items(decks, key = { it.id }) { deck -> DeckRow(vm, deck, color) }
-                if (kind == DeckKind.CHORDS && !vm.hasStarterKit()) {
+                if (!vm.hasStarterKit(kind)) {
                     item {
                         Panel {
-                            Text("Startkit: A-Akkorde", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                if (kind == DeckKind.CHORDS) "Startkit: A-Akkorde" else "Startkit: A-Akkorde als Karteikarten",
+                                fontWeight = FontWeight.SemiBold,
+                            )
                             Text(
                                 StarterKits.A_CHORDS.joinToString(" · "),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            SmallButton("Hinzufügen", vm::addStarterKit, color = color)
+                            SmallButton("Hinzufügen", { vm.addStarterKit(kind) }, color = color)
                         }
                     }
                 }
@@ -199,12 +202,12 @@ private fun CardRow(vm: AppViewModel, card: Card, deck: Deck, color: Color) {
             Column(Modifier.weight(1f)) {
                 val title = card.front.ifBlank { card.frontAudio?.name ?: "(leer)" }
                 Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium, color = if (suspended) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                if (deck.kind == DeckKind.CHORDS) {
+                if (deck.kind == DeckKind.CHORDS && card.answer.isEmpty()) {
                     Spacer(Modifier.height(6.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (card.answer.isEmpty()) Chip("Lösung fehlt", Palette.again)
-                        card.answer.forEach { t -> TokenChip(Token.of(t, vm.settings.germanNotation)) }
-                    }
+                    Chip("Lösung fehlt", Palette.again)
+                } else if (card.answer.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    ChordChips(vm, vm.tokensOf(card), vm.keyFor(card), showKey = false)
                 } else if (card.back.isNotBlank()) {
                     Text(
                         card.back.replace('\n', ' '),
@@ -232,6 +235,26 @@ private fun CardRow(vm: AppViewModel, card: Card, deck: Deck, color: Color) {
 
 /** An answer token: teal when it is a chord Widder understands, grey when it is plain text. */
 @Composable
-fun TokenChip(token: Token) {
-    Chip(token.text, if (token.chord != null) Palette.chords else MaterialTheme.colorScheme.onSurfaceVariant)
+fun TokenChip(token: Token, label: String = token.text, large: Boolean = false) {
+    Chip(label, if (token.chord != null) Palette.chords else MaterialTheme.colorScheme.onSurfaceVariant, large = large)
+}
+
+/** The chords of a card with their roman numerals, and the key they are counted in. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ChordChips(vm: AppViewModel, tokens: List<Token>, key: widder.music.Key?, showKey: Boolean = true, large: Boolean = false) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(if (large) 10.dp else 6.dp, if (large) Alignment.CenterHorizontally else Alignment.Start),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (showKey && key != null && vm.settings.numerals != widder.core.NumeralMode.OFF && tokens.any { it.chord != null }) {
+            Text(
+                vm.keyName(key) + ":",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        tokens.forEach { TokenChip(it, vm.chordLabel(it, key), large) }
+    }
 }

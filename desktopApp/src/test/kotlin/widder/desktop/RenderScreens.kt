@@ -106,6 +106,26 @@ fun main() {
     render("startkit") { vm ->
         vm.startTraining(widder.ui.StarterKits.A_CHORDS_ID)
     }
+    render("startkit-folge") { vm ->
+        vm.startTraining(widder.ui.StarterKits.A_CHORDS_ID)
+        // Jump to the Amaj -> A/C# -> A/E sequence.
+        val session = vm.training!!
+        val card = vm.cardsIn(widder.ui.StarterKits.A_CHORDS_ID).first { it.answer == listOf("Amaj", "A/C#", "A/E") }
+        session.card = card
+        session.round = widder.core.ChordRound(vm.tokensOf(card), 2, candidates = vm.tokensOf(card).take(0) + widder.ui.StarterKits.A_CHORDS.map { widder.music.Token.of(it) })
+        session.version++
+        vm.placeTile(session.round!!.pool.first { it.token.text == "Amaj" }, 0)
+    }
+    render("karte-akkord") { vm ->
+        vm.startReview(widder.ui.StarterKits.A_CARDS_ID)
+        vm.showAnswer()
+    }
+    render("editor-karte-akkorde") { vm ->
+        vm.newCard(vm.cardDeck())
+        vm.editor!!.front = "Typische Pop-Folge – welche Stufen?"
+        vm.editor!!.answer = "Am F C G"
+        vm.generateChordAudio()
+    }
     println("Screens in ${out.absolutePath}")
     System.exit(0)
 }

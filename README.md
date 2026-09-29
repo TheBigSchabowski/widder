@@ -36,6 +36,18 @@ Verstanden werden u. a. `m min - moll`, `7 maj7 M7 Δ`, `m7 m7b5 ø dim dim7 aug
 Slash-Akkorde (`C/E`) und deutsche Namen (`H`, `Fis`, `Es`, `As`, `Cism`, `Des-Dur`).
 In den Einstellungen: „Deutsche Notennamen“ (B = Bb).
 
+## Akkorde auf Karteikarten und Stufen
+
+Auch eine Karteikarte kann Akkorde haben (Feld „Akkorde“ im Editor). Sie erscheinen auf der
+Rückseite, und „Als Audio erzeugen“ macht aus ihnen gleich den Klang der Vorderseite. Das
+Startkit gibt es deshalb auch als Karteikarten-Stapel.
+
+Akkorde werden mit ihrer **Stufe** gezeigt: `I (A)`, `IV (D)`, `bVII (G)`, `vi (F#m)`,
+Umkehrungen als `I/3` (Terz im Bass) und `I/5` (Quinte im Bass). Die Tonart erkennt Widder aus den
+Akkorden einer Karte; nur welche Akkorde vorkommen zählt, nicht die Reihenfolge – sonst würde im
+Training die „I“-Kachel verraten, was zuerst kommt. Festlegen lässt sie sich pro Stapel
+(Stapel-Optionen) oder Karte. In den Einstellungen: Stufen aus / „I (A)“ / nur „I“.
+
 ## Audio-Editor („Schneiden & Effekte“)
 
 Nicht-destruktiv – die Originaldatei bleibt unverändert, alles ist später wieder änderbar,

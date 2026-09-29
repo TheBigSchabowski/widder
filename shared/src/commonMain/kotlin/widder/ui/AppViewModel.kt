@@ -42,8 +42,12 @@ import widder.core.answer
 import widder.core.currentTimeMillis
 import widder.core.formatTime
 import widder.core.newId
+import widder.core.NumeralMode
 import widder.music.AnswerParser
 import widder.music.Chord
+import widder.music.Harmony
+import widder.music.Key
+import widder.music.Token
 import widder.music.Midi
 import widder.music.MidiAnalysis
 import widder.music.Notation
@@ -188,11 +192,12 @@ class AppViewModel(
         saveCollection(collection.copy(decks = collection.decks.map { if (it.id == deck.id) deck else it }))
     }
 
-    fun hasStarterKit(): Boolean = collection.decks.any { it.id == StarterKits.A_CHORDS_ID }
+    fun hasStarterKit(kind: DeckKind): Boolean =
+        collection.decks.any { it.id == if (kind == DeckKind.CHORDS) StarterKits.A_CHORDS_ID else StarterKits.A_CARDS_ID }
 
-    fun addStarterKit() {
-        if (hasStarterKit()) return
-        val (deck, cards) = StarterKits.aChords(store)
+    fun addStarterKit(kind: DeckKind) {
+        if (hasStarterKit(kind)) return
+        val (deck, cards) = if (kind == DeckKind.CHORDS) StarterKits.aChords(store) else StarterKits.aChordCards(store)
         saveCollection(collection.copy(decks = collection.decks + deck, cards = collection.cards + cards))
         toast("Startkit „${deck.name}“ angelegt")
     }
@@ -221,11 +226,63 @@ class AppViewModel(
         open(Screen.EditCard)
     }
 
-    /** Parsed answer of the editor, for the preview chips. */
-    fun editorTokens(): List<widder.music.Token> {
+    /** Parsed chords of the editor, for the preview chips. */
+    fun editorTokens(): List<Token> {
         val e = editor ?: return emptyList()
         return AnswerParser.parseText(e.answer, settings.germanNotation)
     }
+
+    /** The key of the card being edited: typed in, from the deck, or recognised. */
+    fun editorKey(): Key? {
+        val e = editor ?: return null
+        return resolveKey(e.key.ifBlank { null } ?: deck(e.deckId)?.key, editorTokens())
+    }
+
+    /** Turns the chords typed into the editor into audio (built-in synth) on the front. */
+    fun generateChordAudio() {
+        val e = editor ?: return
+        val chords = editorTokens().map { it.chord }
+        if (chords.isEmpty() || chords.any { it == null }) {
+            toast("Nur erkannte Akkorde lassen sich abspielen")
+            return
+        }
+        e.frontAudio?.takeIf { clip -> e.original?.let { it.frontAudio?.file == clip.file || it.backAudio?.file == clip.file } != true }
+            ?.let { store.deleteMedia(it.file) }
+        val name = editorTokens().joinToString(" ") { it.text }
+        // A single chord without its root doubled in the bass, so inversions can be heard.
+        val bytes = Midi.write(MidiAnalysis.progression(chords.filterNotNull(), 1.6, rootBass = chords.size > 1), bpm = 100)
+        e.frontAudio = Clip(store.addMedia("$name.mid", bytes), "$name.mid")
+    }
+
+    // endregion
+
+    // region roman numerals
+
+    private fun resolveKey(explicit: String?, tokens: List<Token>): Key? =
+        explicit?.let { Key.parse(it, settings.germanNotation) } ?: Harmony.detectKey(tokens.mapNotNull { it.chord })
+
+    fun tokensOf(card: Card): List<Token> = card.answer.map { Token.of(it, settings.germanNotation) }
+
+    /** Key for a card's numerals: the card's own, the deck's, or recognised from its chords. */
+    fun keyFor(card: Card): Key? = resolveKey(card.key ?: deck(card.deckId)?.key, tokensOf(card))
+
+    /** "I (A)", "I" or "A", depending on the setting; plain text for tokens that are no chord. */
+    fun chordLabel(token: Token, key: Key?): String {
+        val numeral = numeral(token, key) ?: return token.text
+        return when (settings.numerals) {
+            NumeralMode.OFF -> token.text
+            NumeralMode.WITH_NAME -> "$numeral (${token.text})"
+            NumeralMode.ONLY -> numeral
+        }
+    }
+
+    fun numeral(token: Token, key: Key?): String? {
+        if (settings.numerals == NumeralMode.OFF) return null
+        val chord = token.chord ?: return null
+        return Harmony.numeral(chord, key ?: return null)
+    }
+
+    fun keyName(key: Key?): String? = key?.name(notation)
 
     fun saveEditor(keepOpen: Boolean = false) {
         val e = editor ?: return
@@ -235,7 +292,8 @@ class AppViewModel(
             back = e.back.trim(),
             frontAudio = e.frontAudio,
             backAudio = e.backAudio,
-            answer = if (e.kind == DeckKind.CHORDS) e.answer.split(Regex("[\\s,]+")).filter { it.isNotBlank() } else e.original?.answer ?: emptyList(),
+            answer = e.answer.split(Regex("[\\s,]+")).filter { it.isNotBlank() },
+            key = e.key.trim().ifEmpty { null },
             tags = e.tags.split(Regex("\\s+")).filter { it.isNotBlank() },
             modified = now,
         )
@@ -571,7 +629,7 @@ class AppViewModel(
         session.nextDue = if (card == null) queue.nextLearningDue() else null
         session.round = card?.let {
             ChordRound(
-                it.answer.map { t -> widder.music.Token.of(t, settings.germanNotation) },
+                tokensOf(it),
                 deck.distractors,
                 notation,
                 candidates = deck.pool.map { t -> widder.music.Token.of(t, settings.germanNotation) },
@@ -706,9 +764,10 @@ class AppViewModel(
                 newId(),
                 deckId,
                 front = if (chordsFound) "Welche Akkorde hörst du?" else "Was hörst du?",
-                back = (if (chordsFound) answer.joinToString(" – ") + "\n\n" else "") + "$midiNote: ${f.name.substringBeforeLast('.')}",
+                // The chords themselves are shown under the back, with their numerals.
+                back = "$midiNote: ${f.name.substringBeforeLast('.')}",
                 frontAudio = clip,
-                answer = answer,
+                answer = if (chordsFound) answer else emptyList(),
                 created = now + i,
                 modified = now,
             )

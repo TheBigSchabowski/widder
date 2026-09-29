@@ -49,6 +49,9 @@ fun EditorScreen(vm: AppViewModel) {
                     OutlinedTextField(e.back, { e.back = it }, Modifier.fillMaxWidth(), minLines = 3, placeholder = { Text("Antwort") })
                     Spacer(Modifier.height(10.dp))
                     AudioSlot(vm, ClipTarget.Editor(back = true), e.backAudio, color)
+                    SectionTitle("Akkorde (optional)")
+                    OutlinedTextField(e.answer, { e.answer = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("z. B. Am F C G – erscheinen auf der Rückseite") })
+                    ChordPreview(vm, color, canGenerate = true)
                     SectionTitle("Schlagwörter")
                     OutlinedTextField(e.tags, { e.tags = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("durch Leerzeichen getrennt") })
                 } else {
@@ -56,10 +59,7 @@ fun EditorScreen(vm: AppViewModel) {
                     AudioSlot(vm, ClipTarget.Editor(back = false), e.frontAudio, color)
                     SectionTitle("Lösung – in der Reihenfolge, in der sie klingt")
                     OutlinedTextField(e.answer, { e.answer = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("z. B. A D G F oder Fmin Gmin") })
-                    Spacer(Modifier.height(8.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        vm.editorTokens().forEach { TokenChip(it) }
-                    }
+                    ChordPreview(vm, color, canGenerate = e.frontAudio == null)
                     Text(
                         "Türkis = als Akkord erkannt (Fmin und Fm gelten als gleich). Grau = wird als Text verglichen.",
                         Modifier.padding(top = 6.dp),
@@ -88,7 +88,33 @@ fun EditorScreen(vm: AppViewModel) {
     }
 }
 
+/** Chips for the typed chords, the key field and "turn into audio". */
+@Composable
+private fun ChordPreview(vm: AppViewModel, color: Color, canGenerate: Boolean) {
+    val e = vm.editor ?: return
+    val tokens = vm.editorTokens()
+    if (tokens.isEmpty()) return
+    val key = vm.editorKey()
+    Spacer(Modifier.height(8.dp))
+    ChordChips(vm, tokens, key)
+    Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            e.key,
+            { e.key = it },
+            Modifier.weight(1f),
+            singleLine = true,
+            label = { Text("Tonart für die Stufen") },
+            placeholder = { Text(vm.keyName(key)?.let { "$it (erkannt)" } ?: "z. B. A oder fis-Moll") },
+        )
+        if (canGenerate && tokens.all { it.chord != null }) {
+            Spacer(Modifier.width(8.dp))
+            SmallButton(if (e.frontAudio == null) "Als Audio erzeugen" else "Audio neu erzeugen", vm::generateChordAudio, color = color)
+        }
+    }
+}
+
 /** An audio attachment: play, cut & effects, replace, remove - or record / choose a file. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AudioSlot(vm: AppViewModel, target: ClipTarget, clip: Clip?, color: Color) {
     Panel(padding = 12.dp) {
@@ -115,7 +141,7 @@ fun AudioSlot(vm: AppViewModel, target: ClipTarget, clip: Clip?, color: Color) {
                 )
             }
         }
-        Row(Modifier.padding(top = 4.dp)) {
+        FlowRow(Modifier.padding(top = 4.dp)) {
             SmallButton("Schneiden & Effekte", { vm.openAudioEditor(target) }, color = color)
             SmallButton("Ersetzen", { vm.pickAudio(target) }, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SmallButton("Aufnehmen", { vm.startRecording(target) }, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -133,10 +133,13 @@ data class Chord(val root: Int, val quality: Quality, val bass: Int? = null) {
             }
             val name = names[((pc % 12) + 12) % 12]
             if (!notation.german) return name
-            return when (name) {
-                "B" -> "H"
-                "Bb" -> "B"
-                "A#" -> "Ais"
+            return when {
+                name == "B" -> "H"
+                name == "Bb" -> "B"
+                name.endsWith("#") -> name.dropLast(1) + "is"
+                name == "Eb" -> "Es"
+                name == "Ab" -> "As"
+                name.endsWith("b") -> name.dropLast(1) + "es"
                 else -> name
             }
         }
