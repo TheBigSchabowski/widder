@@ -13,6 +13,7 @@ import widder.music.Midi
 import widder.music.MidiAnalysis
 import widder.music.Chord
 import widder.ui.AppViewModel
+import widder.ui.ClipTarget
 import widder.ui.PlatformHooks
 import widder.ui.StarterKits
 import kotlin.test.Test
@@ -135,5 +136,17 @@ class FolderTest {
         folders.put("/widder/Meine Akkorde", "Fmin Gmin.mid", midiOf("Fm", "Gm"))
         vm.openFolder(deck.id)
         assertEquals(listOf("Fmin", "Gmin"), vm.cardsIn(deck.id).single().answer)
+    }
+
+    @Test
+    fun endMarkerDraggedToTheLeftEdgeKeepsASelection() {
+        val vm = vm()
+        vm.editCard(vm.cardsIn(StarterKits.A_CARDS_ID).first { it.frontAudio != null })
+        vm.openAudioEditor(ClipTarget.Editor(back = false))
+        val state = assertNotNull(vm.audioEditor)
+        // Crashed on the phone: the start had no room left before the end.
+        vm.updateEdit(state.edit.copy(trimEnd = 0.0))
+        assertEquals(0.0, state.edit.trimStart)
+        assertTrue(state.selectionEnd > state.edit.trimStart)
     }
 }

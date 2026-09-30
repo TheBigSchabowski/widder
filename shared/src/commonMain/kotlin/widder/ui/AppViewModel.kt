@@ -515,8 +515,10 @@ class AppViewModel(
 
     fun updateEdit(edit: AudioEdit) {
         val state = audioEditor ?: return
-        val end = edit.trimEnd?.coerceIn(0.0, state.duration)
-        val start = edit.trimStart.coerceIn(0.0, (end ?: state.duration) - 0.02)
+        // At least 20 ms stay selected; an end marker dragged to the very left must not leave the start no room.
+        val minLength = 0.02.coerceAtMost(state.duration)
+        val end = edit.trimEnd?.coerceIn(minLength, state.duration)
+        val start = edit.trimStart.coerceIn(0.0, (end ?: state.duration) - minLength)
         state.edit = edit.copy(trimStart = start.coerceAtLeast(0.0), trimEnd = end?.takeIf { it < state.duration - 0.005 })
     }
 
