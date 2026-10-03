@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 
 plugins {
     kotlin("jvm")
@@ -18,6 +19,7 @@ dependencies {
 }
 
 // jpackage lives in a full JDK; the JDK 21 that Gradle provisions may be a JBR without it.
+// Only macOS has java_home; elsewhere (the Linux packages) Gradle's own JVM does.
 fun systemJdk(): String {
     val javaHome = File("/usr/libexec/java_home")
     if (!javaHome.canExecute()) return System.getProperty("java.home")
@@ -36,11 +38,15 @@ compose.desktop {
         (findProperty("windowSize") as String?)?.let { jvmArgs += "-Dwindow.size=$it" }
 
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg)
+            // Each format can only be built on its own operating system: the DMG on the Mac, the DEB on Linux.
+            targetFormats(TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Widder"
             packageVersion = property("app.version") as String
-            // javax.sound needs these modules; jpackage only bundles what it is told to.
-            modules("java.desktop")
+            description = "Karteikarten und Akkord-Gehörtraining für Musik, mit Spaced Repetition"
+            vendor = "TheBigSchabowski"
+            // javax.sound needs java.desktop, the AAC decoder (jaad) logs through java.logging; jpackage only
+            // bundles what it is told to.
+            modules("java.desktop", "java.logging")
             macOS {
                 bundleID = "de.privat.widder"
                 iconFile.set(project.file("icon.icns"))
@@ -51,9 +57,26 @@ compose.desktop {
                     """.trimIndent()
                 }
             }
+            linux {
+                iconFile.set(project.file("icon.png"))
+                packageName = "widder"
+                debMaintainer = "TheBigSchabowski@users.noreply.github.com"
+                appCategory = "education"
+                menuGroup = "Education;"
+            }
         }
     }
 }
+
+// jpackage works out the .deb dependencies from the libraries installed on the build machine. A server or
+// container without the X11 libraries AWT loads would leave them out, and the app would not start on a desktop without them.
+// No spaces in the list: jpackage reads its arguments from a file that splits at them.
+tasks.withType<AbstractJPackageTask>().configureEach {
+    if (targetFormat == TargetFormat.Deb) freeArgs.addAll("--linux-package-deps", "libxtst6,libxi6,libxrandr2")
+}
+
+// The same icon.png is the window icon on Linux and Windows (see Main.kt).
+tasks.processResources { from("icon.png") }
 
 tasks.register<JavaExec>("renderScreens") {
     description = "Renders the main screens at phone and desktop size into build/screens."

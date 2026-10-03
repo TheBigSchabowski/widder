@@ -106,7 +106,7 @@ fun SettingsScreen(vm: AppViewModel) {
                 if (vm.platform.canDropFiles) {
                     SectionTitle("Tastatur")
                     Panel {
-                        Text("Abfragen: Leertaste = Antwort zeigen / Gut, 1–4 = Nochmal/Schwer/Gut/Leicht, R = nochmal hören, E = bearbeiten, ⌘Z = rückgängig")
+                        Text("Abfragen: Leertaste = Antwort zeigen / Gut, 1–4 = Nochmal/Schwer/Gut/Leicht, R = nochmal hören, E = bearbeiten, ⌘Z / Strg+Z = rückgängig")
                         Spacer(Modifier.height(6.dp))
                         Text("Akkord-Training: Leertaste = anhören, Enter = prüfen / weiter, ⌫ = letzten Akkord zurücklegen, E = Audio bearbeiten")
                         Spacer(Modifier.height(6.dp))

@@ -13,6 +13,8 @@ import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.awtTransferable
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -20,6 +22,8 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.res.loadImageBitmap
+import androidx.compose.ui.res.useResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -31,6 +35,7 @@ import widder.core.DirectoryStore
 import widder.core.IncomingFile
 import widder.core.PickKind
 import widder.core.Store
+import widder.core.UserDirs
 import widder.ui.App
 import widder.ui.AppViewModel
 import widder.ui.KeyCommand
@@ -42,7 +47,11 @@ import java.awt.datatransfer.DataFlavor
 import java.io.File
 
 fun dataDir(): File = System.getProperty("widder.dataDir")?.let(::File)
-    ?: File(System.getProperty("user.home"), "Documents/Widder")
+    ?: File(UserDirs.documents(), "Widder")
+
+/** The Mac takes the icon from the app bundle; on other systems the window needs it. */
+private fun windowIcon(): Painter? =
+    if (System.getProperty("os.name").startsWith("Mac")) null else useResource("icon.png") { BitmapPainter(loadImageBitmap(it)) }
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() = application {
@@ -54,6 +63,7 @@ fun main() = application {
             exitApplication()
         },
         title = "Widder",
+        icon = remember(::windowIcon),
         // -Dwindow.size=393x852 opens at phone size, to check the narrow layout that Android uses.
         state = System.getProperty("window.size")?.split("x")?.map { it.toInt().dp }
             ?.let { (w, h) -> rememberWindowState(width = w, height = h) }
@@ -127,24 +137,23 @@ private fun handleKey(vm: AppViewModel, event: KeyEvent): Boolean {
     return vm.onKey(key)
 }
 
-/** The native macOS open dialog, and folders in Finder. */
+/** The system's own file dialogs, and folders in Finder or the file manager. */
 private class DesktopHooks(dataDir: File) : PlatformHooks {
     override val folders = DesktopFolders(dataDir)
 
-    private var lastDir: String = File(System.getProperty("user.home"), "Music").takeIf { it.isDirectory }?.path
-        ?: System.getProperty("user.home")
+    private var lastDir: String = UserDirs.music().takeIf { it.isDirectory }?.path ?: UserDirs.home().path
 
     override val canDropFiles: Boolean = true
 
     override fun saveFile(suggestedName: String, bytes: ByteArray, onDone: (String?) -> Unit) {
         val dialog = FileDialog(null as Frame?, "Audio speichern", FileDialog.SAVE)
-        dialog.directory = File(System.getProperty("user.home"), "Downloads").takeIf { it.isDirectory }?.path ?: lastDir
+        dialog.directory = UserDirs.downloads().takeIf { it.isDirectory }?.path ?: lastDir
         dialog.file = suggestedName
         dialog.isVisible = true
         val name = dialog.file ?: return onDone(null)
         val file = File(dialog.directory, name)
         file.writeBytes(bytes)
-        onDone(file.path.replaceFirst(System.getProperty("user.home"), "~"))
+        onDone(file.path.replaceFirst(UserDirs.home().path, "~"))
     }
 
     override fun pickFiles(kind: PickKind, onResult: (List<IncomingFile>) -> Unit) {
