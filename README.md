@@ -90,6 +90,42 @@ auch mitten beim Lernen („Audio bearbeiten“ im Training, „Schneiden & Effe
 MIDI-Dateien werden von einem eingebauten Synthesizer gerendert – auf Android, Mac und Linux
 gleich, und durch dieselben Effekte.
 
+## Kacheln und Tastenkürzel
+
+Über dem Bildschirm liegt ein unsichtbares Raster aus **Kacheln** (Standard 2 × 2, einstellbar bis
+3 × 4). Normales Tippen bedient wie immer, was darunter liegt. **Doppelt tippen** oder
+**gedrückt halten** auf einer Kachel löst deren Aktion aus – auch über Knöpfen und Karten:
+Beim Halten wird der Knopf darunter abgebrochen, er löst nicht aus. Beim Doppeltippen erreicht
+das erste Tippen noch den Knopf (ein einzelnes Tippen lässt sich nicht rechtzeitig von einem
+doppelten unterscheiden) – auf Knöpfen ist Halten daher die sichere Geste. Wischen und Scrollen
+lösen nichts aus.
+
+Pro Kachel einstellbar („Kacheln anpassen“ oder Einstellungen → Kacheln): Name, Farbe und je eine
+Aktion für doppelt Tippen und Halten:
+
+| Aktion | was passiert |
+|---|---|
+| Karteikarten / Akkord-Training öffnen | die Stapelübersicht |
+| Lernen | Abfrage bzw. Training des Stapels |
+| Stapel öffnen | die Kartenliste |
+| Neue Karte | der Karten-Editor |
+| Aufnehmen → Karte | nimmt sofort auf; danach öffnen Schnitt und Editor, aus der Aufnahme wird eine Karte |
+| Dateien importieren | Dateiauswahl, direkt in den Stapel |
+| Bild ansehen, Einstellungen, Startbildschirm | |
+
+Bei Aktionen mit Stapel legt man pro Geste einen festen Stapel fest – oder nicht: Dann nimmt die
+Aktion den gerade offenen Stapel und fragt sonst nach. Die Kacheln hören nur auf dem
+Startbildschirm, überall (außer im Karten-Editor und im Akkord-Training, die die Gesten selbst
+brauchen) oder gar nicht. Eine ausgelöste Kachel leuchtet kurz mit ihrer Aktion auf; „Felder
+andeuten“ zeigt das Raster dauerhaft. Standard: oben links Halten = Lernen, oben rechts Halten =
+Neue Karte, unten links Halten = Karteikarten, unten rechts Halten = Aufnehmen → Karte.
+
+**Tastenkürzel (Mac und Linux)** wie in tmux: erst den Prefix **⌃B** (Linux: Strg+B), loslassen, dann eine Taste. Nach dem
+Prefix erscheint unten eine Übersicht aller Tasten (auch anklickbar). Buchstaben und Ziffern sind frei belegbar (Standard: K Karteikarten, A Akkord-Training, L Lernen,
+N Neue Karte, R Aufnehmen, I Importieren, O Stapel öffnen, B Bild, S Einstellungen, H Start). Der
+Prefix ist wählbar (⌃B, ⌃A, ⌃Leertaste, ⌘K) oder selbst einzudrücken („Eigenen drücken …“,
+z. B. ⌥Leertaste oder F5) oder ganz aus.
+
 ## Spielerisches
 
 XP und Level, Tage-in-Folge, Serien-Bonus im Training und die **Bildbelohnung** aus dem

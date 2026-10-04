@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -19,7 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import widder.core.KeyStroke
 import widder.core.Reward
+import widder.core.Shortcuts
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -103,8 +107,21 @@ fun SettingsScreen(vm: AppViewModel) {
                     }
                 }
 
+                SectionTitle("Kacheln")
+                Panel {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${s.tileColumns} × ${s.tileRows} Felder, ${s.tileScope.label} – doppelt tippen oder halten",
+                            Modifier.weight(1f),
+                        )
+                        SmallButton("Anpassen", { vm.open(Screen.Tiles) })
+                    }
+                }
+
+                if (vm.platform.keyboard) KeyboardSettings(vm)
+
                 if (vm.platform.canDropFiles) {
-                    SectionTitle("Tastatur")
+                    SectionTitle("Tastatur beim Lernen")
                     Panel {
                         Text("Abfragen: Leertaste = Antwort zeigen / Gut, 1–4 = Nochmal/Schwer/Gut/Leicht, R = nochmal hören, E = bearbeiten, ⌘Z / Strg+Z = rückgängig")
                         Spacer(Modifier.height(6.dp))
@@ -130,6 +147,44 @@ fun SettingsScreen(vm: AppViewModel) {
     }
 }
 
+/** The prefix and the shortcuts after it. */
+@Composable
+private fun KeyboardSettings(vm: AppViewModel) {
+    val prefix = vm.settings.prefix
+    SectionTitle("Tastenkürzel")
+    Panel {
+        Text("Prefix", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(6.dp))
+        val options: List<KeyStroke?> = (Shortcuts.PREFIXES + listOfNotNull(prefix)).distinct() + listOf(null)
+        Choices(options, prefix, { it?.let(vm::keyLabel) ?: "aus" }) { p -> vm.updateSettings { it.copy(prefix = p) } }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Wie in tmux: erst den Prefix, loslassen, dann eine Taste.",
+                Modifier.weight(1f).padding(top = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            SmallButton("Eigenen drücken …", { vm.capturingPrefix = true })
+        }
+        if (prefix != null) {
+            Spacer(Modifier.height(8.dp))
+            for (s in vm.shortcuts) {
+                Row(Modifier.fillMaxWidth().clickable { vm.shortcutEdit = ShortcutEdit(s.key) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    KeyHint("${vm.keyLabel(prefix)} ${s.key}")
+                    Spacer(Modifier.width(12.dp))
+                    Text(vm.describe(s.action), Modifier.weight(1f))
+                    SmallButton("Entfernen", { vm.deleteShortcut(s.key) }, color = MaterialTheme.colorScheme.error)
+                }
+            }
+            Row {
+                SmallButton("+ Kürzel", { vm.shortcutEdit = ShortcutEdit(null) })
+                Spacer(Modifier.weight(1f))
+                SmallButton("Standard", vm::resetShortcuts, color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
 @Composable
 private fun Label(text: String) {
     Text(text, Modifier.padding(top = 12.dp, bottom = 6.dp), style = MaterialTheme.typography.bodyMedium)
@@ -137,7 +192,7 @@ private fun Label(text: String) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun <T> Choices(options: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
+fun <T> Choices(options: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for (o in options) {
             Chip(label(o), MaterialTheme.colorScheme.primary, filled = o == selected, modifier = Modifier.clickable { onPick(o) })

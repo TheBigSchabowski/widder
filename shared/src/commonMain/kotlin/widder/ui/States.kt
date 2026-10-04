@@ -23,6 +23,10 @@ sealed interface Screen {
     data class Review(val deckId: String) : Screen
     data class Train(val deckId: String) : Screen
     data object Settings : Screen
+    data object Tiles : Screen
+
+    /** One field of the gesture grid, counted row by row. */
+    data class EditTile(val index: Int) : Screen
 
     /** Screens where the time counts towards the reward picture. */
     val isStudy: Boolean get() = this is Review || this is Train
@@ -39,6 +43,12 @@ interface PlatformHooks {
 
     /** Asks where to save [bytes] (named [suggestedName]); [onDone] gets where it went, or null. */
     fun saveFile(suggestedName: String, bytes: ByteArray, onDone: (String?) -> Unit) = onDone(null)
+
+    /** A real keyboard: the prefix shortcuts are offered and shown. */
+    val keyboard: Boolean get() = false
+
+    /** Key combinations written the Mac way (⌃B) rather than spelled out (Strg+B). */
+    val macKeys: Boolean get() = true
 
     /** Folders the user can see; null where decks cannot be linked to one. */
     val folders: widder.core.FolderAccess? get() = null
@@ -111,7 +121,8 @@ class AudioEditorState(val target: ClipTarget, val clip: Clip, val source: Pcm) 
     val selectionEnd: Double get() = edit.trimEnd ?: duration
 }
 
-class RecordingState(val target: ClipTarget) {
+/** [quick]: started from a tile or shortcut; throwing the recording away throws the new card away too. */
+class RecordingState(val target: ClipTarget, val quick: Boolean = false) {
     var started = 0L
 }
 
@@ -129,6 +140,15 @@ sealed interface DeckDialog {
     data class New(val kind: DeckKind) : DeckDialog
     data class Options(val deckId: String) : DeckDialog
 }
+
+/** An action that needs a deck and has none yet: the user picks one. */
+/** Lights up field [index] for a moment; [serial] tells two flashes on the same field apart. */
+class TileFlash(val index: Int, val label: String, val serial: Int)
+
+class DeckPick(val kind: widder.core.ActionKind)
+
+/** The shortcut being edited in the settings; null = a new one. */
+class ShortcutEdit(val key: Char?)
 
 class Confirm(val title: String, val text: String, val action: String, val run: () -> Unit)
 

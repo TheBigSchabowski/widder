@@ -139,6 +139,20 @@ fun main() {
         vm.editor!!.answer = "Am F C G"
         vm.generateChordAudio()
     }
+    render("kacheln") { it.open(Screen.Tiles) }
+    render("kacheln-3x4") { vm ->
+        vm.updateSettings { it.copy(tileColumns = 3, tileRows = 4) }
+        vm.open(Screen.Tiles)
+    }
+    render("kachel-bearbeiten") { vm -> vm.open(Screen.EditTile(3)) }
+    render("home-felder") { vm -> vm.updateSettings { it.copy(showTiles = true) } }
+    render("home-geste") { vm ->
+        vm.saveTile(1, widder.core.GestureTile("Bild", widder.core.TileColor.PURPLE, longPress = widder.core.Action(widder.core.ActionKind.SETTINGS)))
+        vm.onTileGesture(1, long = true)
+    }
+    render("prefix") { vm -> vm.onShortcutKey(widder.core.KeyStroke("B", ctrl = true), null) }
+    render("stapel-waehlen") { vm -> vm.run(widder.core.Action(widder.core.ActionKind.RECORD)) }
+    render("kuerzel") { vm -> vm.shortcutEdit = widder.ui.ShortcutEdit('L') }
     println("Screens in ${out.absolutePath}")
     System.exit(0)
 }

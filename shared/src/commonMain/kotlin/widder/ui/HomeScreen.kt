@@ -36,10 +36,13 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import widder.core.DeckKind
+import widder.core.TileColor
+import widder.core.TileScope
 import widder.core.Reward
 import widder.core.Store
 import widder.core.levelFor
@@ -66,7 +69,18 @@ fun HomeScreen(vm: AppViewModel) {
                 Header(vm)
                 Spacer(Modifier.height(18.dp))
                 Paths(vm)
-                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        listOfNotNull(
+                            "Doppelt tippen oder halten: Kacheln".takeIf { vm.settings.tileScope != TileScope.OFF },
+                            vm.settings.prefix?.takeIf { vm.platform.keyboard }?.let { "${vm.keyLabel(it)} + Taste: Kürzel" },
+                        ).joinToString(" · "),
+                        Modifier.weight(1f).padding(start = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = onBackdrop(vm).copy(alpha = 0.75f),
+                    )
+                    SmallButton("Kacheln anpassen", { vm.open(Screen.Tiles) }, color = onBackdrop(vm))
+                }
                 RewardStatus(vm)
                 if (vm.platform.canDropFiles) {
                     Text(
@@ -196,6 +210,27 @@ private fun PathCard(modifier: Modifier, color: Color, title: String, text: Stri
             }
         }
     }
+}
+
+fun tileColor(color: TileColor): Color = when (color) {
+    TileColor.AMBER -> Palette.cards
+    TileColor.TEAL -> Palette.chords
+    TileColor.RED -> Palette.again
+    TileColor.BLUE -> Palette.easy
+    TileColor.GREEN -> Palette.good
+    TileColor.PURPLE -> Color(0xFF9B6DD6)
+    TileColor.GREY -> Color(0xFF8A8494)
+}
+
+/** A key combination as a small key cap. */
+@Composable
+fun KeyHint(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        modifier.clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)).padding(horizontal = 6.dp, vertical = 2.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
