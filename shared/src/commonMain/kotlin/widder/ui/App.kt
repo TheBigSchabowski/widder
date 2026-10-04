@@ -16,7 +16,7 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
         val focused = LocalWindowInfo.current.isWindowFocused
         LaunchedEffect(focused) { if (focused) vm.onResume() else vm.foreground = false }
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Box(modifier.fillMaxSize()) {
+            Box(modifier.fillMaxSize().tileGestures(vm)) {
                 when (val s = vm.screen) {
                     Screen.Home -> HomeScreen(vm)
                     is Screen.Decks -> DecksScreen(vm, s.kind)
@@ -25,10 +25,14 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
                     is Screen.Review -> ReviewScreen(vm)
                     is Screen.Train -> TrainScreen(vm)
                     Screen.Settings -> SettingsScreen(vm)
+                    Screen.Tiles -> TilesScreen(vm)
+                    is Screen.EditTile -> EditTileScreen(vm, s.index)
                 }
                 AudioEditorScreen(vm)
                 RecordingOverlay(vm)
                 Dialogs(vm)
+                TileLayer(vm)
+                KeyOverlay(vm)
                 Notices(vm)
             }
         }

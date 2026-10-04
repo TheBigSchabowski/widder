@@ -49,6 +49,8 @@ fun Dialogs(vm: AppViewModel) {
         null -> Unit
     }
     vm.pendingImport?.let { ImportTargetDialog(vm, it.size) }
+    vm.deckPick?.let { DeckPickDialog(vm, it) }
+    vm.shortcutEdit?.let { ShortcutDialog(vm, it) }
     vm.importPreview?.let { ImportPreviewDialog(vm, it) }
     vm.confirm?.let { c ->
         AlertDialog(

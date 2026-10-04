@@ -18,9 +18,13 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.res.useResource
@@ -33,6 +37,7 @@ import widder.audio.MIDI_EXTENSIONS
 import widder.audio.desktopAudioSystem
 import widder.core.DirectoryStore
 import widder.core.IncomingFile
+import widder.core.KeyStroke
 import widder.core.PickKind
 import widder.core.Store
 import widder.core.UserDirs
@@ -113,8 +118,36 @@ private fun expand(files: List<File>): List<File> = files.flatMap { f ->
     }
 }
 
+private val modifierKeys = setOf(
+    Key.ShiftLeft, Key.ShiftRight, Key.CtrlLeft, Key.CtrlRight, Key.AltLeft, Key.AltRight, Key.MetaLeft, Key.MetaRight,
+)
+
+/** The key as a [KeyStroke]: letters, digits, space, Escape and F1–F12; null for everything else. */
+private fun strokeOf(event: KeyEvent): KeyStroke? {
+    val code = event.key.nativeKeyCode
+    val name = when (code) {
+        in java.awt.event.KeyEvent.VK_A..java.awt.event.KeyEvent.VK_Z -> code.toChar().toString()
+        in java.awt.event.KeyEvent.VK_0..java.awt.event.KeyEvent.VK_9 -> code.toChar().toString()
+        in java.awt.event.KeyEvent.VK_F1..java.awt.event.KeyEvent.VK_F12 -> "F${code - java.awt.event.KeyEvent.VK_F1 + 1}"
+        java.awt.event.KeyEvent.VK_SPACE -> "Space"
+        java.awt.event.KeyEvent.VK_ESCAPE -> "Escape"
+        else -> null
+    } ?: return null
+    return KeyStroke(name, ctrl = event.isCtrlPressed, alt = event.isAltPressed, shift = event.isShiftPressed, meta = event.isMetaPressed)
+}
+
 private fun handleKey(vm: AppViewModel, event: KeyEvent): Boolean {
-    if (event.type != KeyEventType.KeyDown) return false
+    if (event.type != KeyEventType.KeyDown || event.key in modifierKeys) return false
+    val stroke = strokeOf(event)
+    if (stroke != null) {
+        val typed = event.utf16CodePoint.takeIf { it in 1..0xFFFE }?.toChar()
+        if (vm.onShortcutKey(stroke, typed)) return true
+    } else if (vm.prefixPending || vm.capturingPrefix) {
+        // Arrows, Tab and the like neither pick a shortcut nor become the prefix.
+        vm.closePrefix()
+        vm.capturingPrefix = false
+        return true
+    }
     val command = event.isMetaPressed || event.isCtrlPressed
     // Typing in text fields (card editor, search) must not trigger shortcuts.
     val study = vm.screen is Screen.Review || vm.screen is Screen.Train || vm.audioEditor != null
@@ -144,6 +177,10 @@ private class DesktopHooks(dataDir: File) : PlatformHooks {
     private var lastDir: String = UserDirs.music().takeIf { it.isDirectory }?.path ?: UserDirs.home().path
 
     override val canDropFiles: Boolean = true
+
+    override val keyboard: Boolean = true
+
+    override val macKeys: Boolean = System.getProperty("os.name").startsWith("Mac")
 
     override fun saveFile(suggestedName: String, bytes: ByteArray, onDone: (String?) -> Unit) {
         val dialog = FileDialog(null as Frame?, "Audio speichern", FileDialog.SAVE)

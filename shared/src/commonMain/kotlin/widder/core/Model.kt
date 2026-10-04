@@ -118,6 +118,17 @@ data class Settings(
     /** The starter kits were given their folder once; unlinking them afterwards sticks. */
     val kitFolderLinked: Boolean = false,
     val reward: RewardSettings = RewardSettings(),
+    /** The fields of the gesture grid, row by row; null = the standard ones. May hold more than the grid shows. */
+    val tiles: List<GestureTile>? = null,
+    val tileColumns: Int = 2,
+    val tileRows: Int = 2,
+    val tileScope: TileScope = TileScope.HOME,
+    /** Outlines and names of the fields drawn faintly over the screen. */
+    val showTiles: Boolean = false,
+    /** Desktop: the prefix before a shortcut letter; null = shortcuts off. */
+    val prefix: KeyStroke? = Shortcuts.DEFAULT_PREFIX,
+    /** Desktop: prefix + letter; null = the standard ones. */
+    val shortcuts: List<Shortcut>? = null,
 )
 
 @Serializable

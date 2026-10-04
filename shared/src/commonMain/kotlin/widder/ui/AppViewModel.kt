@@ -22,6 +22,8 @@ import widder.audio.Pcm
 import widder.audio.RenderCache
 import widder.audio.Synth
 import widder.audio.Wav
+import widder.core.Action
+import widder.core.ActionKind
 import widder.core.AudioEdit
 import widder.core.Card
 import widder.core.ChordRound
@@ -31,12 +33,17 @@ import widder.core.Deck
 import widder.core.DeckCounts
 import widder.core.DeckKind
 import widder.core.Grade
+import widder.core.GestureTile
+import widder.core.KeyStroke
 import widder.core.IncomingFile
 import widder.core.PickKind
 import widder.core.Progress
 import widder.core.Queue
 import widder.core.Reward
 import widder.core.Settings
+import widder.core.Shortcut
+import widder.core.Shortcuts
+import widder.core.TileScope
 import widder.core.Store
 import widder.core.answer
 import widder.core.currentTimeMillis
@@ -98,6 +105,19 @@ class AppViewModel(
     var rewardImages by mutableStateOf<RewardImages?>(null)
         private set
     var showRewardOnly by mutableStateOf(false)
+    var deckPick by mutableStateOf<DeckPick?>(null)
+    var shortcutEdit by mutableStateOf<ShortcutEdit?>(null)
+
+    /** The field whose gesture just fired, briefly lit up. */
+    var tileFlash by mutableStateOf<TileFlash?>(null)
+        private set
+
+    /** The prefix was pressed; the next key picks the shortcut. */
+    var prefixPending by mutableStateOf(false)
+        private set
+
+    /** Settings: the next key combination becomes the prefix. */
+    var capturingPrefix by mutableStateOf(false)
 
     /** Window focused / app in the foreground; only then does learning time count. */
     var foreground = true
@@ -144,6 +164,9 @@ class AppViewModel(
             audioEditor != null -> closeAudioEditor()
             importPreview != null -> importPreview = null
             pendingImport != null -> pendingImport = null
+            prefixPending -> prefixPending = false
+            capturingPrefix -> capturingPrefix = false
+            deckPick != null -> deckPick = null
             showRewardOnly -> showRewardOnly = false
             screen == Screen.EditCard -> cancelEditor()
             stack.size > 1 -> leave()
@@ -450,17 +473,19 @@ class AppViewModel(
         }
     }
 
-    fun startRecording(target: ClipTarget) {
+    fun startRecording(target: ClipTarget, quick: Boolean = false) {
         audio.player.stop()
         platform.requestMicrophone { granted ->
             if (!granted) {
                 toast("Ohne Mikrofon-Erlaubnis kann Widder nicht aufnehmen")
+                if (quick) cancelEditor()
                 return@requestMicrophone
             }
             if (audio.recorder.start()) {
-                recording = RecordingState(target).also { it.started = currentTimeMillis() }
+                recording = RecordingState(target, quick).also { it.started = currentTimeMillis() }
             } else {
                 toast("Kein Mikrofon gefunden")
+                if (quick) cancelEditor()
             }
         }
     }
@@ -469,7 +494,11 @@ class AppViewModel(
         val state = recording ?: return
         recording = null
         val pcm = audio.recorder.stop()
-        if (!keep || pcm == null || pcm.frames < pcm.sampleRate / 10) return
+        if (!keep || pcm == null || pcm.frames < pcm.sampleRate / 10) {
+            // A card that was only opened for this recording goes with it.
+            if (state.quick && screen == Screen.EditCard && editor?.let { it.original == null && it.frontAudio == null } == true) cancelEditor()
+            return
+        }
         val name = "Aufnahme ${formatTime(currentTimeMillis(), "dd.MM. HH-mm-ss")}.wav"
         val file = store.addMedia(name, Wav.write(pcm))
         val clip = Clip(file, name)
@@ -751,7 +780,7 @@ class AppViewModel(
         is Screen.Review -> s.deckId
         is Screen.Train -> s.deckId
         else -> null
-    }
+    }?.takeIf { deck(it) != null }
 
     fun chooseImportTarget(deckId: String?, newKind: DeckKind? = null) {
         val files = pendingImport ?: return
@@ -1099,6 +1128,181 @@ class AppViewModel(
         foreground = true
         // Files may have been swapped in Finder or the file manager meanwhile.
         if (wasAway && live) scope.launch { syncAllFolders() }
+    }
+
+    // endregion
+
+    // region tiles and actions
+
+    /** Exactly one field per grid cell, row by row. */
+    val tiles: List<GestureTile>
+        get() {
+            val stored = settings.tiles ?: Shortcuts.defaultTiles
+            return List(settings.tileColumns * settings.tileRows) { stored.getOrNull(it) ?: GestureTile() }
+        }
+
+    /** Whether the grid takes double taps and long presses right now. */
+    fun tilesActive(): Boolean {
+        if (recording != null || audioEditor != null || busy != null || prefixPending || capturingPrefix || showRewardOnly) return false
+        if (importPreview != null || pendingImport != null || deckPick != null) return false
+        return when (settings.tileScope) {
+            TileScope.OFF -> false
+            TileScope.HOME -> screen == Screen.Home
+            // Text fields and drag & drop need these gestures themselves; the grid editor would trip over itself.
+            TileScope.EVERYWHERE -> screen != Screen.EditCard && screen !is Screen.Train && screen != Screen.Tiles && screen !is Screen.EditTile
+        }
+    }
+
+    /** A double tap or long press on field [index]; false when the field has nothing for it. */
+    fun onTileGesture(index: Int, long: Boolean): Boolean {
+        val tile = tiles.getOrNull(index) ?: return false
+        val action = if (long) tile.longPress else tile.doubleTap
+        if (action.isNone || !tilesActive()) return false
+        tileFlash = TileFlash(index, describe(action), (tileFlash?.serial ?: 0) + 1)
+        run(action)
+        return true
+    }
+
+    fun hasTileAction(index: Int, long: Boolean): Boolean =
+        tiles.getOrNull(index)?.let { if (long) !it.longPress.isNone else !it.doubleTap.isNone } == true
+
+    fun clearTileFlash(serial: Int) {
+        if (tileFlash?.serial == serial) tileFlash = null
+    }
+
+    val shortcuts: List<Shortcut> get() = settings.shortcuts ?: Shortcuts.defaultShortcuts
+
+    /** The tile's deck, if it still exists. */
+    fun deckOf(action: Action): Deck? = action.deckId?.let { deck(it) }
+
+    /** "Lernen · Jazz-Standards", or just the action when the deck is chosen each time. */
+    fun describe(action: Action): String = deckOf(action)?.let { "${action.kind.label} · ${it.name}" } ?: action.kind.label
+
+    /** Runs what a tile gesture or a shortcut stands for. */
+    fun run(action: Action) {
+        if (action.isNone) return
+        if (recording != null || audioEditor != null || busy != null) return
+        if (screen == Screen.EditCard) {
+            toast("Erst die Karte speichern oder verwerfen")
+            return
+        }
+        if (action.kind.needsDeck) {
+            val deckId = deckOf(action)?.id ?: currentDeckId()
+            if (deckId == null) deckPick = DeckPick(action.kind) else runWithDeck(action.kind, deckId)
+            return
+        }
+        when (action.kind) {
+            ActionKind.OPEN_CARDS -> jumpTo(Screen.Decks(DeckKind.CARDS))
+            ActionKind.OPEN_CHORDS -> jumpTo(Screen.Decks(DeckKind.CHORDS))
+            ActionKind.SETTINGS -> jumpTo(Screen.Settings)
+            ActionKind.HOME -> home()
+            ActionKind.REWARD -> {
+                home()
+                if (settings.reward.enabled && rewardImages != null) showRewardOnly = true else toast("Noch kein Belohnungsbild gewählt")
+            }
+            else -> Unit
+        }
+    }
+
+    /** The deck picked for an action that asked for one. */
+    fun pickDeck(deckId: String) {
+        val pick = deckPick ?: return
+        deckPick = null
+        runWithDeck(pick.kind, deckId)
+    }
+
+    private fun runWithDeck(kind: ActionKind, deckId: String) {
+        val deck = deck(deckId) ?: return
+        when (kind) {
+            ActionKind.STUDY -> {
+                if (counts(deck).total == 0) {
+                    toast("In „${deck.name}“ ist gerade nichts fällig")
+                    return
+                }
+                home()
+                if (deck.kind == DeckKind.CARDS) startReview(deckId) else startTraining(deckId)
+            }
+            ActionKind.BROWSE -> jumpTo(Screen.Browse(deckId))
+            // These stay on top of whatever is open: after saving it is back there.
+            ActionKind.NEW_CARD -> newCard(deckId)
+            ActionKind.RECORD -> {
+                newCard(deckId)
+                startRecording(ClipTarget.Editor(back = false), quick = true)
+            }
+            ActionKind.IMPORT -> pickImport(deckId)
+            else -> Unit
+        }
+    }
+
+    /** Opens [target] straight from the start screen, so back always leads home. */
+    private fun jumpTo(target: Screen) {
+        if (screen == target) return
+        home()
+        if (target != Screen.Home) open(target)
+    }
+
+    fun saveTile(index: Int, tile: GestureTile) {
+        val stored = (settings.tiles ?: Shortcuts.defaultTiles).toMutableList()
+        while (stored.size <= index) stored += GestureTile()
+        stored[index] = tile
+        updateSettings { it.copy(tiles = stored) }
+    }
+
+    fun resetTiles() = updateSettings { it.copy(tiles = null, tileColumns = 2, tileRows = 2) }
+
+    /** Replaces the shortcut on [old] (null = adds one); a key already taken is taken over. */
+    fun saveShortcut(old: Char?, shortcut: Shortcut) {
+        val rest = shortcuts.filter { it.key != old && it.key != shortcut.key }
+        val at = shortcuts.indexOfFirst { it.key == old }.takeIf { it >= 0 }?.coerceAtMost(rest.size) ?: rest.size
+        updateSettings { it.copy(shortcuts = rest.toMutableList().apply { add(at, shortcut) }) }
+    }
+
+    fun deleteShortcut(key: Char) = updateSettings { it.copy(shortcuts = shortcuts.filter { s -> s.key != key }) }
+
+    fun resetShortcuts() = updateSettings { it.copy(shortcuts = null, prefix = Shortcuts.DEFAULT_PREFIX) }
+
+    /**
+     * Desktop: every key press comes here first, before the study keys. [stroke] is the key with
+     * its modifiers, [typed] the character it types. Returns true when it was used.
+     */
+    fun onShortcutKey(stroke: KeyStroke, typed: Char?): Boolean {
+        if (capturingPrefix) {
+            if (stroke.key == "Escape") {
+                capturingPrefix = false
+            } else if (!stroke.usableAsPrefix) {
+                toast(if (platform.macKeys) "Zusammen mit ⌃, ⌥ oder ⌘ drücken – oder eine F-Taste" else "Zusammen mit Strg, Alt oder Super drücken – oder eine F-Taste")
+            } else {
+                capturingPrefix = false
+                updateSettings { it.copy(prefix = stroke) }
+                toast("Prefix ist jetzt ${keyLabel(stroke)}")
+            }
+            return true
+        }
+        if (prefixPending) {
+            prefixPending = false
+            if (stroke.key == "Escape" || stroke == settings.prefix) return true
+            val key = typed?.takeIf { it.isLetterOrDigit() }?.uppercaseChar() ?: stroke.key.singleOrNull() ?: return true
+            runShortcut(key)
+            return true
+        }
+        if (settings.prefix != null && stroke == settings.prefix) {
+            prefixPending = true
+            return true
+        }
+        return false
+    }
+
+    fun keyLabel(stroke: KeyStroke): String = stroke.label(platform.macKeys)
+
+    /** What comes after the prefix. */
+    fun runShortcut(key: Char) {
+        prefixPending = false
+        val shortcut = shortcuts.firstOrNull { it.key == key } ?: return toast("${settings.prefix?.let(::keyLabel) ?: ""} $key ist nicht belegt")
+        run(shortcut.action)
+    }
+
+    fun closePrefix() {
+        prefixPending = false
     }
 
     // endregion
