@@ -2,11 +2,13 @@ package widder.audio
 
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.util.ServiceLoader
 import java.util.concurrent.TimeUnit
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.DataLine
 import javax.sound.sampled.SourceDataLine
 import javax.sound.sampled.TargetDataLine
+import javax.sound.sampled.spi.AudioFileReader
 import kotlin.concurrent.thread
 import kotlin.math.abs
 import javax.sound.sampled.AudioSystem as JavaSound
@@ -124,34 +126,59 @@ private class LineRecorder : AudioRecorder {
 }
 
 /**
- * AIFF/AU through javax.sound; MP3, M4A, AAC, FLAC and CAF through macOS' own `afconvert`,
- * which ships with every Mac.
+ * Tries one reader after the other: the JDK's own (AIFF, AU), macOS' `afconvert` (every Mac has it), the Java
+ * decoders for MP3, M4A/AAC, FLAC and OGG, and last `ffmpeg` if it is installed (Opus, CAF, ALAC and the rest).
  */
-private object DesktopDecoder : AudioDecoder {
+internal class DesktopDecoder(private val ffmpeg: String? = findTool("ffmpeg")) : AudioDecoder {
     override fun decode(bytes: ByteArray, extension: String): Pcm? =
-        javaSound(bytes) ?: afconvert(bytes, extension)
+        javaSound(bytes)
+            ?: convert("/usr/bin/afconvert", bytes, extension) { input, output -> listOf("-f", "WAVE", "-d", "LEI16", input, output) }
+            ?: JavaDecoders.decode(bytes, extension)
+            ?: ffmpeg?.let { tool ->
+                convert(tool, bytes, extension) { input, output ->
+                    listOf("-v", "error", "-nostdin", "-y", "-i", input, "-vn", "-f", "wav", "-c:a", "pcm_s16le", output)
+                }
+            }
 
-    private fun javaSound(bytes: ByteArray): Pcm? = try {
-        val input = JavaSound.getAudioInputStream(ByteArrayInputStream(bytes))
-        val target = AudioFormat(input.format.sampleRate, 16, input.format.channels, true, false)
-        val pcm = JavaSound.getAudioInputStream(target, input).readAllBytes()
-        val shorts = ShortArray(pcm.size / 2) { ((pcm[2 * it].toInt() and 0xFF) or (pcm[2 * it + 1].toInt() shl 8)).toShort() }
-        Pcm.fromShorts(target.sampleRate.toInt(), target.channels, shorts)
-    } catch (e: Exception) {
-        null
+    // Only the JDK's own readers: one from a jar on the class path would claim files that are not its own.
+    private val jdkReaders by lazy {
+        ServiceLoader.load(AudioFileReader::class.java, ClassLoader.getPlatformClassLoader()).toList()
     }
 
-    private fun afconvert(bytes: ByteArray, extension: String): Pcm? {
-        val tool = File("/usr/bin/afconvert")
-        if (!tool.canExecute()) return null
+    private fun javaSound(bytes: ByteArray): Pcm? {
+        for (reader in jdkReaders) {
+            try {
+                val input = reader.getAudioInputStream(ByteArrayInputStream(bytes))
+                val target = AudioFormat(input.format.sampleRate, 16, input.format.channels, true, false)
+                val pcm = JavaSound.getAudioInputStream(target, input).readAllBytes()
+                val shorts = ShortArray(pcm.size / 2) { ((pcm[2 * it].toInt() and 0xFF) or (pcm[2 * it + 1].toInt() shl 8)).toShort() }
+                return Pcm.fromShorts(target.sampleRate.toInt(), target.channels, shorts)
+            } catch (e: Exception) {
+                continue
+            }
+        }
+        return null
+    }
+
+    /** Runs a command line converter on temporary files and reads the WAV it writes. */
+    private fun convert(tool: String, bytes: ByteArray, extension: String, arguments: (input: String, output: String) -> List<String>): Pcm? {
+        if (!File(tool).canExecute()) return null
         val input = File.createTempFile("widder-in", ".$extension")
         val output = File.createTempFile("widder-out", ".wav")
         return try {
             input.writeBytes(bytes)
-            val process = ProcessBuilder(tool.path, "-f", "WAVE", "-d", "LEI16", input.path, output.path)
-                .redirectErrorStream(true).start()
-            process.inputStream.readAllBytes()
-            if (!process.waitFor(60, TimeUnit.SECONDS) || process.exitValue() != 0) null else Wav.read(output.readBytes())
+            val process = ProcessBuilder(listOf(tool) + arguments(input.path, output.path))
+                .redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .start()
+            if (!process.waitFor(60, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                null
+            } else if (process.exitValue() != 0) {
+                null
+            } else {
+                Wav.read(output.readBytes())
+            }
         } catch (e: Exception) {
             null
         } finally {
@@ -161,4 +188,12 @@ private object DesktopDecoder : AudioDecoder {
     }
 }
 
-fun desktopAudioSystem(): AudioSystem = AudioSystem(StreamingPlayer { LineSink() }, LineRecorder(), DesktopDecoder)
+/** The first executable [name] on the PATH. A Mac app started from the Dock has a short PATH, so Homebrew's folders are tried as well. */
+internal fun findTool(name: String): String? =
+    (System.getenv("PATH").orEmpty().split(File.pathSeparatorChar) + listOf("/opt/homebrew/bin", "/usr/local/bin"))
+        .filter { it.isNotBlank() }
+        .map { File(it, name) }
+        .firstOrNull { it.isFile && it.canExecute() }
+        ?.path
+
+fun desktopAudioSystem(): AudioSystem = AudioSystem(StreamingPlayer { LineSink() }, LineRecorder(), DesktopDecoder())

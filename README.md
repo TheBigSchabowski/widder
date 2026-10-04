@@ -2,7 +2,7 @@
 
 Spaced-Repetition-Lernapp für Musik: Anki-artige Karteikarten, ein kleiner Audio-Editor und
 Akkord-Gehörtraining per Drag & Drop. Eine Codebasis (Kotlin Multiplatform + Compose
-Multiplatform) für **Android** und **macOS**.
+Multiplatform) für **Android**, **macOS** und **Linux**.
 
 ## Die zwei Wege
 
@@ -53,7 +53,8 @@ per „Neu einlesen“. `/` ist in Dateinamen verboten; `Am∕C.mid` (mit dem Di
 wird als `Am/C` gelesen.
 
 **Startkit:** Auf dem Mac liegen die Dateien automatisch in
-`~/Documents/Widder/Startkit A-Akkorde`. Auf Android „Ordner“ tippen und einen Ordner wählen
+`~/Documents/Widder/Startkit A-Akkorde`, unter Linux im Dokumente-Ordner des Benutzers
+(z. B. `~/Dokumente/Widder/Startkit A-Akkorde`). Auf Android „Ordner“ tippen und einen Ordner wählen
 (am besten im Dialog einen neuen anlegen, z. B. `Documents/Widder Startkit`) – Android lässt
 Apps nur in Ordner schreiben, die man selbst ausgesucht hat.
 
@@ -86,8 +87,8 @@ auch mitten beim Lernen („Audio bearbeiten“ im Training, „Schneiden & Effe
 - Ein-/Ausblenden, Hall (Freeverb: Anteil, Raumgröße, Dämpfung), Tiefen-/Höhenfilter
 - Anhören mit und ohne Effekte
 
-MIDI-Dateien werden von einem eingebauten Synthesizer gerendert – auf Android und Mac gleich,
-und durch dieselben Effekte.
+MIDI-Dateien werden von einem eingebauten Synthesizer gerendert – auf Android, Mac und Linux
+gleich, und durch dieselben Effekte.
 
 ## Spielerisches
 
@@ -100,11 +101,12 @@ Abfragen/Trainieren mit Fenster im Vordergrund.
 ## Starten
 
 ```bash
-export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"   # Linux: ein JDK 21
 
-./gradlew :desktopApp:run                          # Mac-App
+./gradlew :desktopApp:run                          # Desktop-App (Mac, Linux)
 ./gradlew :desktopApp:run -PdataDir=/tmp/widder    # mit Test-Sammlung
-./gradlew :desktopApp:packageDmg                   # DMG in desktopApp/build/compose/binaries
+./gradlew :desktopApp:packageDmg                   # Mac: DMG in desktopApp/build/compose/binaries
+./gradlew :desktopApp:packageDeb                   # Linux: DEB in desktopApp/build/compose/binaries
 
 ./gradlew :androidApp:assembleRelease              # APK in androidApp/build/outputs/apk/release
 ./tools/android-emulator.sh                        # APK im Emulator ohne Fenster + Screenshot
@@ -116,16 +118,46 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 Release bauen: `./tools/build-release.sh` legt DMG, APK und Prüfsummen in `dist/releases`.
 Die APK wird mit `~/.android/widder-release.jks` signiert (einmalig erzeugt von
 `tools/android-sign.sh`). **Schlüssel und `.pass`-Datei sichern:** Nur damit signierte Versionen
-lassen sich über die installierte App aktualisieren. Das Icon kommt aus `tools/make-icon.sh`.
+lassen sich über die installierte App aktualisieren. Das Icon kommt aus `tools/make-icon.sh`
+(`desktopApp/icon.png`, das Fenster-Icon unter Linux, ist daraus abgeleitet).
 
-Auf dem Mac: Dateien (auch ganze Ordner) einfach ins Fenster ziehen. Tastatur beim Abfragen:
-Leertaste, 1–4, R (nochmal hören), E (bearbeiten), ⌘Z; im Training Enter = prüfen/weiter,
-⌫ = letzten Akkord zurücklegen; Esc = zurück.
+Auf dem Computer (Mac, Linux): Dateien (auch ganze Ordner) einfach ins Fenster ziehen. Tastatur
+beim Abfragen: Leertaste, 1–4, R (nochmal hören), E (bearbeiten), ⌘Z bzw. Strg+Z; im Training
+Enter = prüfen/weiter, ⌫ = letzten Akkord zurücklegen; Esc = zurück.
 Auf Android: „Importieren“, oder aus einer anderen App „Teilen → Widder“ / „Öffnen mit“.
+
+## Linux
+
+Gebaut wird unter Linux selbst (jpackage erzeugt immer Pakete für das System, auf dem es läuft):
+`./tools/build-linux.sh` führt die Desktop-Tests aus und legt ein `.deb` und ein portables
+`.tar.gz` samt Prüfsummen in `dist/linux`. Dafür braucht es ein JDK 21 sowie `dpkg-deb` und
+`fakeroot` (Debian/Ubuntu: `sudo apt install fakeroot`).
+
+```bash
+sudo apt install ./Widder_<Version>_linux-amd64.deb     # Programm „Widder“ im Anwendungsmenü
+tar xzf Widder_<Version>_linux-amd64.tar.gz && Widder/bin/Widder    # ohne Installation
+```
+
+Das `.deb` ist unter Ubuntu 24.04 gebaut und passt auf Ubuntu 24.04+ und Debian 13+ (es hängt an
+`libasound2t64`); auf älteren oder anderen Distributionen (Fedora, Arch, …) das `.tar.gz` nehmen,
+es bringt seine Java-Laufzeit mit und braucht nur die üblichen X11-, ALSA- und Schrift-Bibliotheken.
+
+- **Ton** läuft über javax.sound und damit über ALSA; PulseAudio und PipeWire sind über deren
+  ALSA-Brücke (`pipewire-alsa`, `pulseaudio` – bei Ubuntu/Fedora dabei) angebunden.
+- **Ordner wählen** („Ordner“ am Stapel): `zenity` (GNOME) oder `kdialog` (KDE), wenn installiert,
+  sonst ein schlichter Java-Dialog. „Ordner öffnen“ geht über `xdg-open`.
+- **Audioformate:** WAV/AIFF/AU direkt; MP3, M4A/AAC, FLAC und OGG Vorbis mit eingebauten
+  Java-Decodern. Opus, CAF und ALAC lassen sich nur importieren, wenn `ffmpeg` installiert ist
+  (wie auf dem Mac, wo `afconvert` die meisten Formate abdeckt). Die Decoder sind JLayer (MP3),
+  JOrbis (OGG), jFLAC (FLAC; alle drei LGPL) und jaad (AAC; Apache 2.0), als unveränderte Jars im
+  Programm.
+- **Daten** liegen im Dokumente-Ordner des Benutzers, den `~/.config/user-dirs.dirs` festlegt
+  (siehe „Daten“); Dateidialoge starten in Musik bzw. Downloads nach derselben Konfiguration.
 
 ## Daten
 
-Mac: `~/Documents/Widder`, Android: App-Speicher.
+Mac: `~/Documents/Widder`, Linux: `Widder` im Dokumente-Ordner (nach XDG, z. B.
+`~/Dokumente/Widder`, sonst `~/Documents/Widder`), Android: App-Speicher.
 `collection.json` (Stapel, Karten, Einstellungen), `progress.json` (Lernstand, XP, Bildbelohnung),
 `media/` (Audio, MIDI, Bild).
 
@@ -139,7 +171,8 @@ shared/src/commonMain/kotlin/widder/
   ui/      Compose-Oberfläche und AppViewModel
 shared/src/jvmCommonMain   Dateien, Zeit, Audio-Thread (für beide Plattformen)
 shared/src/androidMain     AudioTrack, AudioRecord, MediaCodec (MP3/M4A/FLAC/OGG)
-shared/src/desktopMain     javax.sound, afconvert (MP3/M4A/FLAC auf dem Mac)
+shared/src/desktopMain     javax.sound; Dateiformate: afconvert (Mac), Java-Decoder (MP3, M4A/AAC,
+                           FLAC, OGG), ffmpeg falls vorhanden; Ordner-Dialoge, XDG-Verzeichnisse
 androidApp/, desktopApp/   Einstiegspunkte
 ```
 
