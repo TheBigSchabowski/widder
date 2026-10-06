@@ -42,6 +42,19 @@ class HarmonyTest {
     }
 
     @Test
+    fun modesAreCountedAgainstMajor() {
+        fun all(key: String, vararg chords: String) = chords.map { n(it, key) }
+        assertEquals(listOf("i", "ii", "bIII", "IV", "v", "vi°", "bVII"), all("D-Dorisch", "Dm", "Em", "F", "G", "Am", "Hdim", "C"))
+        assertEquals(listOf("i", "bII", "bIII", "iv", "v°", "bVI", "bvii"), all("E phrygisch", "Em", "F", "G", "Am", "Hdim", "C", "Dm"))
+        assertEquals(listOf("I", "II", "iii", "#iv°", "V", "vi", "vii"), all("F-Lydisch", "F", "G", "Am", "Hdim", "C", "Dm", "Em"))
+        assertEquals(listOf("I", "ii", "iii°", "IV", "v", "vi", "bVII"), all("G-Mixolydisch", "G", "Am", "Hdim", "C", "Dm", "Em", "F"))
+        assertEquals(listOf("i", "ii°", "III", "iv", "v", "V", "VI", "VII"), all("a-Moll", "Am", "Hdim", "C", "Dm", "Em", "E", "F", "G"))
+        assertEquals("D-Dorisch", Key.parse("d dorian")!!.name(Notation(german = true)))
+        assertEquals("a-Moll", Key.parse("A-Äolisch")!!.name())
+        assertEquals("C-Dur", Key.parse("C-Ionisch")!!.name())
+    }
+
+    @Test
     fun wholeStarterKitHasNumerals() {
         val labels = StarterKits.A_CHORDS.map { n(it, "A") }
         assertEquals(listOf("iadd9", "Iadd9", "I7", "Imaj7", "i/3", "i/5", "I", "I/3", "I/5", "I-Okt", "I5"), labels)

@@ -72,6 +72,13 @@ data class Chord(val root: Int, val quality: Quality, val bass: Int? = null) {
 
     override fun toString(): String = name()
 
+    /** Root position, then the third, fifth and (if there is one) seventh in the bass; a ninth never goes down there. */
+    fun inversions(): List<Chord> {
+        val hasThird = 3 in quality.intervals || 4 in quality.intervals
+        return quality.intervals.filter { it != 12 && !(it == 2 && hasThird) }
+            .map { if (it == 0) copy(bass = null) else copy(bass = (root + it) % 12) }
+    }
+
     companion object {
         private val SEPARATOR = Regex("[\\s_]+")
 
@@ -175,9 +182,12 @@ data class Chord(val root: Int, val quality: Quality, val bass: Int? = null) {
     }
 }
 
-/** One answer token: the chord it names if it is one, otherwise the plain text. */
+/** One answer token: the chord it names if it is one, otherwise the plain text (or an interval). */
 data class Token(val text: String, val chord: Chord?) {
-    val key: String get() = chord?.key ?: text.trim().lowercase()
+    /** Semitones when the text names an interval ("kleine Terz"). */
+    val interval: Int? get() = if (chord == null) Interval.parse(text) else null
+
+    val key: String get() = chord?.key ?: interval?.let { "interval:$it" } ?: text.trim().lowercase()
 
     companion object {
         fun of(text: String, german: Boolean = false) = Token(text, Chord.parse(text, german))
@@ -216,8 +226,10 @@ object AnswerParser {
     fun parseText(text: String, german: Boolean = false): List<Token> {
         // File names cannot contain "/": "Am∕C.mid" uses the division slash instead.
         val stem = text.replace(FILE_SLASH, '/').replace('\u2044', '/')
-        val words = stem.replace(BRACKETS, " ").split(SEPARATORS).map { it.trim() }
-            .filter { it.isNotEmpty() && !NUMBER.matches(it) && !DASHES.matches(it) }
+        val words = Interval.joinWords(
+            stem.replace(BRACKETS, " ").split(SEPARATORS).map { it.trim() }
+                .filter { it.isNotEmpty() && !NUMBER.matches(it) && !DASHES.matches(it) },
+        )
         if (words.size == 1) {
             val only = words[0]
             if (Chord.parse(only, german) == null) splitRun(only, german)?.let { return it }
@@ -234,6 +246,9 @@ object AnswerParser {
         return tokens.takeIf { list -> list.all { it.chord != null } }
     }
 
+    /** A typed answer as stored on a card: split at spaces and commas, "kleine Terz" kept together. */
+    fun splitTyped(text: String): List<String> = Interval.joinWords(text.split(Regex("[\\s,]+")).filter { it.isNotBlank() })
+
     /** Same answer, however the chords were written. */
     fun matches(a: List<Token>, b: List<Token>): Boolean = a.map { it.key } == b.map { it.key }
 }
@@ -242,6 +257,7 @@ object AnswerParser {
 object Distractors {
     fun make(answer: List<Token>, count: Int, notation: Notation, random: Random = Random): List<Token> {
         if (count <= 0) return emptyList()
+        if (answer.isNotEmpty() && answer.all { it.interval != null }) return intervals(answer, count, random)
         val chords = answer.mapNotNull { it.chord }
         val taken = answer.map { it.key }.toMutableSet()
         val candidates = mutableListOf<Chord>()
@@ -267,5 +283,14 @@ object Distractors {
         )
         return candidates.shuffled(random).filter { taken.add(it.key) }.take(count)
             .map { Token(it.name(style), it) }
+    }
+
+    /** Neighbours a few semitones away and the same interval an octave off: what one mixes up. */
+    private fun intervals(answer: List<Token>, count: Int, random: Random): List<Token> {
+        val taken = answer.mapNotNull { it.interval }.toSet()
+        val others = (1..24).filter { it !in taken }
+        val near = others.filter { o -> taken.any { kotlin.math.abs(it - o) <= 3 || kotlin.math.abs(it - o) == 12 } }
+        return (near.shuffled(random) + (others - near.toSet()).shuffled(random)).take(count)
+            .map { Token(Interval.name(it), null) }
     }
 }

@@ -59,10 +59,66 @@ class FolderTest {
     }
     private val kitFolder = "/widder/${StarterKits.FOLDER}"
 
-    private fun vm() = AppViewModel(Store(MemoryStore()), SilentAudio.system, hooks, live = false, main = Dispatchers.Unconfined, work = Dispatchers.Unconfined)
+    private fun vm(store: Store = Store(MemoryStore())) = AppViewModel(store, SilentAudio.system, hooks, live = false, main = Dispatchers.Unconfined, work = Dispatchers.Unconfined)
         .also { it.refreshFolders() }
 
     private fun midiOf(vararg chords: String) = Midi.write(MidiAnalysis.progression(chords.map { Chord.parse(it)!! }))
+
+    @Test
+    fun newStarterKitsGetTheirOwnFolders() {
+        val store = Store(MemoryStore())
+        val vm = vm(store)
+        val kits = vm.missingKits(DeckKind.CHORDS).map { it.id }
+        assertEquals(
+            listOf(StarterKits.INTERVALS_TOGETHER_ID, StarterKits.INTERVALS_APART_ID, StarterKits.CHORD_TYPES_ID) + StarterKits.SCALES.map { it.id },
+            kits,
+        )
+        kits.forEach { vm.addStarterKit(it) }
+        assertTrue(vm.missingKits(DeckKind.CHORDS).isEmpty())
+        assertEquals(24, vm.cardsIn(StarterKits.INTERVALS_TOGETHER_ID).size)
+        assertEquals(24, vm.cardsIn(StarterKits.INTERVALS_APART_ID).size)
+        // Triads in three positions, sevenths in four, add9 with root, third or fifth in the bass.
+        assertEquals(3 + 4 + 3 + 4 + 3 + 3, vm.cardsIn(StarterKits.CHORD_TYPES_ID).size)
+        val maj7 = vm.cardsIn(StarterKits.CHORD_TYPES_ID).filter { it.answer == listOf("Cmaj7") }.map { it.notes }
+        assertEquals(listOf("Cmaj7: Grundstellung", "Cmaj7/E: 1. Umkehrung (Terz im Bass)", "Cmaj7/G: 2. Umkehrung (Quinte im Bass)", "Cmaj7/H: 3. Umkehrung (Septime im Bass)"), maj7)
+        val together = folders.list("/widder/Startkit Intervalle gleichzeitig")!!.map { it.name }.toSet()
+        assertTrue("kleine Terz.mid" in together && "Quintdezime.mid" in together, "$together")
+        assertEquals(24, folders.list("/widder/Startkit Intervalle nacheinander")!!.size)
+        // A sync reads the files back: still one card per interval, nothing turned into chords.
+        vm.syncFolder(StarterKits.INTERVALS_TOGETHER_ID, quiet = true)
+        val cards = vm.cardsIn(StarterKits.INTERVALS_TOGETHER_ID)
+        assertEquals(24, cards.size)
+        assertEquals(listOf("kleine Terz"), cards.first { it.source == "kleine Terz.mid" }.answer)
+
+        // The degrees deck writes I, IV ... whatever the settings say.
+        val degree = vm.cardsIn(StarterKits.DEGREES_ID).first { it.answer == listOf("C", "F", "G", "C") }
+        assertEquals("I – IV – V – I", degree.front)
+        assertEquals(listOf("I", "IV", "V", "I"), vm.tokensOf(degree).map { vm.chordLabel(it, vm.keyFor(degree), degree.deckId) })
+        // The notes say which inversion sounds; the answer and the numerals do not.
+        assertTrue(degree.notes.lines().first() == "C: Grundstellung" && degree.notes.lines().size == 4, degree.notes)
+        val played = Midi.parse(store.readMedia(degree.frontAudio!!.file)!!)
+        val basses = MidiAnalysis.segments(played).map { s -> s.pitches.min() % 12 }
+        val written = degree.notes.lines().map { line -> Chord.parse(line.substringBefore(':'))!!.let { it.bass ?: it.root } }
+        assertEquals(written, basses)
+        val dorian = vm.cardsIn("startkit-d-dorisch")
+        assertEquals("i – IV – i", dorian.first { it.answer == listOf("Dm", "G", "Dm") }.front)
+        assertEquals("Startkit: D-Dorisch", vm.deck("startkit-d-dorisch")!!.name)
+        val minor = vm.cardsIn("startkit-stufen-a-moll").first { it.answer == listOf("Am", "Dm", "E", "Am") }
+        assertEquals("i – iv – V – i", minor.front)
+        val type = vm.cardsIn(StarterKits.CHORD_TYPES_ID).first { it.answer == listOf("Cmin7") }
+        assertEquals("Cmin7", vm.chordLabel(vm.tokensOf(type).single(), vm.keyFor(type), type.deckId))
+    }
+
+    @Test
+    fun twoNoteMidiInTheFolderIsAnInterval() {
+        val vm = vm()
+        val deck = vm.createDeck("Meine Intervalle", DeckKind.CHORDS)
+        vm.updateDeck(deck.copy(folder = "/widder/eigene"))
+        folders.put("/widder/eigene", "Aufnahme 1.mid", Midi.write(MidiAnalysis.interval(52, 7, together = true)))
+        folders.put("/widder/eigene", "große Terz.mid", Midi.write(MidiAnalysis.interval(52, 4, together = false)))
+        vm.syncFolder(deck.id, quiet = true)
+        assertEquals(setOf(listOf("Quinte"), listOf("große Terz")), vm.cardsIn(deck.id).map { it.answer }.toSet())
+    }
 
     @Test
     fun starterKitIsWrittenToItsFolder() {

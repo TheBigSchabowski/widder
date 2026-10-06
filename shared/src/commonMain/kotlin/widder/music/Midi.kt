@@ -271,6 +271,24 @@ object MidiAnalysis {
     fun chords(midi: MidiFile): List<Chord> = segments(midi).mapNotNull { it.chord }
 
     /**
+     * The interval of a piece made of exactly two notes, together or one after the other, in
+     * semitones (1 up to 24, the Quintdezime); null for anything else.
+     */
+    fun interval(midi: MidiFile): Int? {
+        val notes = midi.notes.filter { it.channel != 9 }
+        if (notes.size != 2) return null
+        return kotlin.math.abs(notes[0].pitch - notes[1].pitch).takeIf { it in 1..24 }
+    }
+
+    /** Two notes [semitones] apart above [low]: at once, or the upper one after the lower. */
+    fun interval(low: Int, semitones: Int, together: Boolean, length: Double = 1.8, velocity: Int = 90): List<Note> =
+        if (together) {
+            listOf(Note(low, 0.0, length, velocity), Note(low + semitones, 0.0, length, velocity))
+        } else {
+            listOf(Note(low, 0.0, length * 0.55, velocity), Note(low + semitones, length * 0.6, length * 1.3, velocity))
+        }
+
+    /**
      * Close voicing around middle C. A slash chord gets its bass note an octave or two below;
      * with [rootBass] a plain chord gets its root there too (fuller, for progressions).
      */

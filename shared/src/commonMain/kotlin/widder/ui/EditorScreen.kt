@@ -70,7 +70,7 @@ fun EditorScreen(vm: AppViewModel) {
                     OutlinedTextField(e.answer, { e.answer = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("z. B. A D G F oder Fmin Gmin") })
                     ChordPreview(vm, color, canGenerate = e.frontAudio == null)
                     Text(
-                        "Türkis = als Akkord erkannt (Fmin und Fm gelten als gleich). Grau = wird als Text verglichen.",
+                        "Türkis = als Akkord oder Intervall erkannt (Fmin und Fm gelten als gleich). Grau = wird als Text verglichen.",
                         Modifier.padding(top = 6.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -79,6 +79,14 @@ fun EditorScreen(vm: AppViewModel) {
                     SectionTitle("Titel (nur in der Übersicht)")
                     OutlinedTextField(e.front, { e.front = it }, Modifier.fillMaxWidth(), singleLine = true)
                 }
+                SectionTitle("Bemerkungen (nur hier sichtbar)")
+                OutlinedTextField(
+                    e.notes,
+                    { e.notes = it },
+                    Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    placeholder = { Text("z. B. welche Umkehrung erklingt – beim Lernen versteckt") },
+                )
                 val original = e.original
                 if (original != null) {
                     Spacer(Modifier.height(24.dp))
@@ -108,7 +116,7 @@ private fun ChordPreview(vm: AppViewModel, color: Color, canGenerate: Boolean) {
     val labelled = e.label.isNotBlank()
     Spacer(Modifier.height(8.dp))
     // With a text of its own the card shows that instead of the chips; they stay visible here, faded.
-    Box(Modifier.alpha(if (labelled) 0.4f else 1f)) { ChordChips(vm, tokens, key) }
+    Box(Modifier.alpha(if (labelled) 0.4f else 1f)) { ChordChips(vm, tokens, key, deckId = e.deckId) }
     Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         if (!labelled) {
             OutlinedTextField(
