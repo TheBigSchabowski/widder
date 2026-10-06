@@ -32,7 +32,8 @@ Am(add9), Amaj(add9), A7, Amaj7, Am/C, Am/E, Amaj, A/C#, A/E, A-Oktave, A5 – j
 Erkennen, dazu ein paar Folgen daraus (u. a. Amaj → A/C# → A/E). Die falschen Kacheln kommen aus
 dem Kit selbst. Amaj klingt in Grundstellung ohne Extra-Bass, die Umkehrungen mit tiefem Basston.
 
-**Weitere Startkits** (Akkord-Training → „Hinzufügen“, jedes mit eigenem Ordner):
+**Weitere Startkits** (Akkord-Training → „Hinzufügen“, jedes mit eigenem Ordner; jedes auch als
+Karteikarten unter Karteikarten → „Hinzufügen“, mit demselben Ordner):
 
 | Startkit | Inhalt |
 |---|---|
@@ -45,7 +46,8 @@ dem Kit selbst. Amaj klingt in Grundstellung ohne Extra-Bass, die Umkehrungen mi
 
 In den Stufen- und Modus-Kits klingen die Akkorde nach dem ersten auch in Umkehrungen; die Lösung
 bleibt der Akkord selbst („F“, nicht „F/A“). Welche Umkehrung erklingt, steht in den
-**Bemerkungen** der Karte – ein Feld, das nur der Editor zeigt, beim Lernen bleibt es versteckt.
+**Bemerkungen** der Karte. Auf Karteikarten stehen sie auf der Rückseite, im Akkord-Training
+zeigt sie nur der Editor.
 Als Tonart verstehen Stapel und Karten jetzt auch Modi: `D-Dorisch`, `F lydisch`, `G-Mixolydian`.
 
 Jedes Intervall beginnt auf einem anderen Ton, damit die Tonhöhe nichts verrät; als falsche
@@ -84,7 +86,8 @@ Apps nur in Ordner schreiben, die man selbst ausgesucht hat.
 
 Auch eine Karteikarte kann Akkorde haben (Feld „Akkorde“ im Editor). Sie erscheinen auf der
 Rückseite, und „Als Audio erzeugen“ macht aus ihnen gleich den Klang der Vorderseite. Das
-Startkit gibt es deshalb auch als Karteikarten-Stapel.
+Startkits gibt es deshalb auch als Karteikarten-Stapel: vorne die Frage und der Klang, hinten
+Akkorde, Stufen oder Intervall und die Bemerkungen.
 
 Akkorde werden mit ihrer **Stufe** gezeigt: `I (A)`, `IV (D)`, `bVII (G)`, `vi (F#m)`,
 Umkehrungen als `I/3` (Terz im Bass) und `I/5` (Quinte im Bass). Die Tonart erkennt Widder aus den

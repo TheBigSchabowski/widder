@@ -74,6 +74,16 @@ fun ReviewScreen(vm: AppViewModel) {
                                     }
                                 }
                             }
+                            if (card.notes.isNotBlank()) {
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                    card.notes,
+                                    Modifier.fillMaxWidth(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
                         }
                     }
                     Row(Modifier.padding(top = 8.dp)) {

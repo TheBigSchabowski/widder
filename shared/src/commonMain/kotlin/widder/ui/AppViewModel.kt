@@ -963,7 +963,8 @@ class AppViewModel(
                 toast("Ordner „${f.describe(folder)}“ ist nicht erreichbar")
                 return
             }
-            val names = existing.map { it.name }.toMutableSet()
+            val before = existing.associateBy { it.name }
+            val names = before.keys.toMutableSet()
             val linked = mutableMapOf<String, Card>()
             for (card in cardsIn(deckId).filter { it.source == null && it.frontAudio != null }) {
                 val clip = card.frontAudio!!
@@ -972,15 +973,26 @@ class AppViewModel(
                     .ifEmpty { "Audio" }
                 var name = "$base.$ext"
                 val bytes = store.readMedia(clip.file) ?: continue
-                if (name in names) {
-                    // Already there (e.g. the other starter kit wrote it). The same file is simply
-                    // taken over; a different one wins over the card's audio on the next read.
-                    val same = withContext(work) { f.read(folder, name) }?.contentEquals(bytes) == true
-                    linked[card.id] = card.copy(source = name, sourceStamp = if (same) existing.first { it.name == name }.stamp else 0)
+                // Already there (e.g. the other starter kit wrote it): the same file is simply taken
+                // over, also as "Cmaj7 (2)" for a second card with that answer. A different file
+                // under the plain name wins over the card's audio on the next read.
+                var n = 2
+                var taken: Card? = null
+                while (name in names) {
+                    val file = before[name]
+                    if (file != null && linked.values.none { it.source == name }) {
+                        val same = withContext(work) { f.read(folder, name) }?.contentEquals(bytes) == true
+                        if (same || n == 2) {
+                            taken = card.copy(source = name, sourceStamp = if (same) file.stamp else 0)
+                            break
+                        }
+                    }
+                    name = "$base (${n++}).$ext"
+                }
+                if (taken != null) {
+                    linked[card.id] = taken
                     continue
                 }
-                var n = 2
-                while (name in names || linked.values.any { it.source == name }) name = "$base (${n++}).$ext"
                 val written = withContext(work) { f.write(folder, name, bytes) } ?: continue
                 names += written.name
                 linked[card.id] = card.copy(source = written.name, sourceStamp = written.stamp)

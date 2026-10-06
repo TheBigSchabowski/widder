@@ -77,7 +77,7 @@ object StarterKits {
     )
 
     val ALL: List<Kit> by lazy {
-        listOf(
+        val chordKits = listOf(
             Kit(A_CHORDS_ID, DeckKind.CHORDS, "Startkit: A-Akkorde", A_CHORDS.joinToString(" · "), FOLDER, ::aChords),
             Kit(A_CARDS_ID, DeckKind.CARDS, "Startkit: A-Akkorde als Karteikarten", A_CHORDS.joinToString(" · "), FOLDER, ::aChordCards),
             Kit(
@@ -99,6 +99,32 @@ object StarterKits {
                 scale.title.replace("Startkit: ", "Startkit "),
             ) { scale(it, scale) }
         }
+        // Every training also as flash cards; the A chords have theirs already.
+        chordKits + chordKits.filter { it.kind == DeckKind.CHORDS && it.id != A_CHORDS_ID }.map { kit ->
+            val question = when (kit.id) {
+                INTERVALS_TOGETHER_ID, INTERVALS_APART_ID -> "Welches Intervall ist das?"
+                CHORD_TYPES_ID -> "Welcher Akkordtyp ist das?"
+                else -> "Welche Stufen hörst du?"
+            }
+            Kit(kit.id + CARDS_SUFFIX, DeckKind.CARDS, kit.title + " als Karteikarten", kit.summary, kit.folder) { asCards(it, kit, question) }
+        }
+    }
+
+    /** Appended to a training's id for its flash-card twin. */
+    const val CARDS_SUFFIX = "-karten"
+
+    /**
+     * The flash-card twin of a chord training: the same audio, answer and notes, with [question] on
+     * the front instead of the answer. Key and numerals stay as in the training.
+     */
+    private fun asCards(store: Store, kit: Kit, question: String): Pair<Deck, List<Card>> {
+        val (training, exercises) = kit.build(store)
+        val id = kit.id + CARDS_SUFFIX
+        val deck = Deck(id, training.name + " (Karten)", DeckKind.CARDS, key = training.key, numerals = training.numerals, created = training.created)
+        val cards = exercises.map { card ->
+            card.copy(id = id + card.id.removePrefix(kit.id), deckId = id, front = question)
+        }
+        return deck to cards
     }
 
     fun kit(id: String): Kit? = ALL.firstOrNull { it.id == id }

@@ -129,6 +129,12 @@ fun main() {
         vm.startReview(widder.ui.StarterKits.A_CARDS_ID)
         vm.showAnswer()
     }
+    render("karte-stufen") { vm ->
+        val id = widder.ui.StarterKits.DEGREES_ID + widder.ui.StarterKits.CARDS_SUFFIX
+        vm.addStarterKit(id)
+        vm.startReview(id)
+        vm.showAnswer()
+    }
     render("karte-akkord") { vm ->
         vm.startReview(widder.ui.StarterKits.A_CARDS_ID)
         vm.showAnswer()
