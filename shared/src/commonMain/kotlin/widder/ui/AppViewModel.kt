@@ -53,6 +53,7 @@ import widder.core.NumeralMode
 import widder.music.AnswerParser
 import widder.music.Chord
 import widder.music.Harmony
+import widder.music.Interval
 import widder.music.Key
 import widder.music.Token
 import widder.music.Midi
@@ -217,14 +218,16 @@ class AppViewModel(
         saveCollection(collection.copy(decks = collection.decks.map { if (it.id == deck.id) deck else it }))
     }
 
-    fun hasStarterKit(kind: DeckKind): Boolean =
-        collection.decks.any { it.id == if (kind == DeckKind.CHORDS) StarterKits.A_CHORDS_ID else StarterKits.A_CARDS_ID }
+    /** The starter kits of [kind] that are not in the collection (any more). */
+    fun missingKits(kind: DeckKind): List<StarterKits.Kit> =
+        StarterKits.ALL.filter { kit -> kit.kind == kind && collection.decks.none { it.id == kit.id } }
 
-    fun addStarterKit(kind: DeckKind) {
-        if (hasStarterKit(kind)) return
-        val (deck, cards) = if (kind == DeckKind.CHORDS) StarterKits.aChords(store) else StarterKits.aChordCards(store)
+    fun addStarterKit(id: String) {
+        val kit = StarterKits.kit(id) ?: return
+        if (collection.decks.any { it.id == id }) return
+        val (deck, cards) = kit.build(store)
         saveCollection(collection.copy(decks = collection.decks + deck, cards = collection.cards + cards))
-        toast("Startkit „${deck.name}“ angelegt")
+        toast("„${deck.name}“ angelegt")
         scope.launch { linkKitFolder(deck.id) }
     }
 
@@ -292,18 +295,21 @@ class AppViewModel(
     /** Key for a card's numerals: the card's own, the deck's, or recognised from its chords. */
     fun keyFor(card: Card): Key? = resolveKey(card.key ?: deck(card.deckId)?.key, tokensOf(card))
 
+    /** How chords are labelled in [deckId]: its own choice, or the setting. */
+    fun numeralMode(deckId: String?): NumeralMode = deckId?.let { deck(it)?.numerals } ?: settings.numerals
+
     /** "I (A)", "I" or "A", depending on the setting; plain text for tokens that are no chord. */
-    fun chordLabel(token: Token, key: Key?): String {
-        val numeral = numeral(token, key) ?: return token.text
-        return when (settings.numerals) {
+    fun chordLabel(token: Token, key: Key?, deckId: String? = null): String {
+        val numeral = numeral(token, key, deckId) ?: return token.text
+        return when (numeralMode(deckId)) {
             NumeralMode.OFF -> token.text
             NumeralMode.WITH_NAME -> "$numeral (${token.text})"
             NumeralMode.ONLY -> numeral
         }
     }
 
-    fun numeral(token: Token, key: Key?): String? {
-        if (settings.numerals == NumeralMode.OFF) return null
+    fun numeral(token: Token, key: Key?, deckId: String? = null): String? {
+        if (numeralMode(deckId) == NumeralMode.OFF) return null
         val chord = token.chord ?: return null
         return Harmony.numeral(chord, key ?: return null)
     }
@@ -318,9 +324,10 @@ class AppViewModel(
             back = e.back.trim(),
             frontAudio = e.frontAudio,
             backAudio = e.backAudio,
-            answer = e.answer.split(Regex("[\\s,]+")).filter { it.isNotBlank() },
+            answer = AnswerParser.splitTyped(e.answer),
             key = e.key.trim().ifEmpty { null },
             label = e.label.trim().ifEmpty { null },
+            notes = e.notes.trim(),
             tags = e.tags.split(Regex("\\s+")).filter { it.isNotBlank() },
             modified = now,
         )
@@ -791,9 +798,12 @@ class AppViewModel(
 
     private fun answerFor(file: IncomingFile): List<String> {
         val tokens = AnswerParser.parse(file.name, settings.germanNotation)
-        if (tokens.isNotEmpty() && tokens.any { it.chord != null }) return tokens.map { it.text }
+        if (tokens.isNotEmpty() && tokens.any { it.chord != null || it.interval != null }) return tokens.map { it.text }
         if (file.extension in MIDI_EXTENSIONS) {
-            val chords = runCatching { MidiAnalysis.chords(Midi.parse(file.bytes)) }.getOrDefault(emptyList())
+            val midi = runCatching { Midi.parse(file.bytes) }.getOrNull()
+            // Two notes are an interval, not a chord without its fifth.
+            midi?.let { MidiAnalysis.interval(it) }?.let { return listOf(Interval.name(it)) }
+            val chords = midi?.let { MidiAnalysis.chords(it) }.orEmpty()
             if (chords.isNotEmpty()) return chords.map { it.name(notation) }
         }
         return tokens.map { it.text }
@@ -807,7 +817,7 @@ class AppViewModel(
                 files.map { f ->
                     val fromName = AnswerParser.parse(f.name, settings.germanNotation)
                     val answer = answerFor(f)
-                    ImportPreview.Item(f, answer.joinToString(" "), fromMidi = fromName.none { it.chord != null } && answer.isNotEmpty())
+                    ImportPreview.Item(f, answer.joinToString(" "), fromMidi = fromName.none { it.chord != null || it.interval != null } && answer.isNotEmpty())
                 },
             )
             return
@@ -826,12 +836,14 @@ class AppViewModel(
         if (deck.kind == DeckKind.CHORDS) {
             return Card(newId(), deck.id, front = title, frontAudio = clip, answer = answer, created = created, modified = created)
         }
-        val chordsFound = answer.isNotEmpty() && answer.all { Chord.parse(it, settings.germanNotation) != null }
+        val intervals = answer.isNotEmpty() && answer.all { Interval.parse(it) != null }
+        val chordsFound = intervals || answer.isNotEmpty() && answer.all { Chord.parse(it, settings.germanNotation) != null }
         return Card(
             newId(),
             deck.id,
             front = when {
                 !chordsFound -> "Was hörst du?"
+                intervals -> if (answer.size == 1) "Welches Intervall ist das?" else "Welche Intervalle hörst du?"
                 answer.size == 1 -> "Welcher Akkord ist das?"
                 else -> "Welche Akkorde hörst du?"
             },
@@ -853,7 +865,7 @@ class AppViewModel(
                 preview.deckId,
                 front = item.file.name.substringBeforeLast('.'),
                 frontAudio = Clip(store.addMedia(item.file.name, item.file.bytes), item.file.name),
-                answer = item.answer.split(Regex("[\\s,]+")).filter { it.isNotBlank() },
+                answer = AnswerParser.splitTyped(item.answer),
                 created = now + i,
                 modified = now,
             )
@@ -936,7 +948,7 @@ class AppViewModel(
     private suspend fun linkKitFolder(deckId: String) {
         val deck = deck(deckId) ?: return
         if (deck.folder != null) return
-        val folder = folders?.defaultFolder(StarterKits.FOLDER) ?: return
+        val folder = folders?.defaultFolder(StarterKits.kit(deckId)?.folder ?: return) ?: return
         linkFolderNow(deckId, folder, quiet = true)
     }
 

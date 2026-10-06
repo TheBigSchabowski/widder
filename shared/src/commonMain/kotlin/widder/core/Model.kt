@@ -19,6 +19,8 @@ data class Deck(
     val pool: List<String> = emptyList(),
     /** Key for the roman numerals, e.g. "A" or "fis-Moll"; null = recognised from each card's chords. */
     val key: String? = null,
+    /** How this deck labels its chords; null = as in the settings. */
+    val numerals: NumeralMode? = null,
     /** A folder this deck mirrors (see FolderAccess); every audio/MIDI file in it is a card. */
     val folder: String? = null,
     val created: Long = 0,
@@ -84,6 +86,8 @@ data class Card(
      * ("Son Clave 3-2"). The chords still count in the training.
      */
     val label: String? = null,
+    /** Notes that only the editor shows, e.g. which inversion the audio plays. */
+    val notes: String = "",
     /** The file in the deck's folder this card comes from; the card follows that file. */
     val source: String? = null,
     /** The file's stamp when it was last read in; a different one means it was replaced. */

@@ -96,6 +96,7 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
     var reviewsPerDay by remember { mutableStateOf(deck.reviewsPerDay.toString()) }
     var distractors by remember { mutableStateOf(deck.distractors) }
     var key by remember { mutableStateOf(deck.key ?: "") }
+    var numerals by remember { mutableStateOf(deck.numerals) }
     AlertDialog(
         onDismissRequest = { vm.deckDialog = null },
         title = { Text("Stapel-Optionen") },
@@ -113,11 +114,20 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
                     placeholder = { Text("leer = aus den Akkorden erkennen") },
                     singleLine = true,
                 )
+                Text("Stufen in diesem Stapel", style = MaterialTheme.typography.bodyMedium)
+                Choices(listOf(null) + widder.core.NumeralMode.entries, numerals, {
+                    when (it) {
+                        null -> "wie Einstellungen"
+                        widder.core.NumeralMode.OFF -> "aus"
+                        widder.core.NumeralMode.WITH_NAME -> "I (A)"
+                        widder.core.NumeralMode.ONLY -> "nur I"
+                    }
+                }) { numerals = it }
                 if (deck.kind == DeckKind.CHORDS) {
-                    Text("Falsche Zusatz-Akkorde im Vorrat: $distractors", style = MaterialTheme.typography.bodyMedium)
-                    Slider(distractors.toFloat(), { distractors = it.roundToInt() }, valueRange = 0f..4f, steps = 3)
+                    Text("Falsche Zusatz-Kacheln im Vorrat: $distractors", style = MaterialTheme.typography.bodyMedium)
+                    Slider(distractors.toFloat(), { distractors = it.roundToInt() }, valueRange = 0f..6f, steps = 5)
                     Text(
-                        "Macht es schwerer: Zwischen den richtigen liegen ähnliche Akkorde (z. B. Moll statt Dur).",
+                        "Macht es schwerer: Zwischen den richtigen liegen ähnliche Akkorde (z. B. Moll statt Dur) oder Intervalle (kleine statt große Terz).",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -141,6 +151,7 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
                         reviewsPerDay = reviewsPerDay.toIntOrNull() ?: deck.reviewsPerDay,
                         distractors = distractors,
                         key = key.trim().ifEmpty { null },
+                        numerals = numerals,
                     ),
                 )
             }) { Text("Speichern") }

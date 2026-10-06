@@ -1,24 +1,51 @@
 package widder.music
 
-/** A key: tonic pitch class and major or (natural) minor. */
-data class Key(val tonic: Int, val minor: Boolean) {
-    /** "A-Dur", "fis-Moll" (German) or "A major", "F# minor". */
+/** A church mode besides major (ionian) and minor (aeolian); [minor] when its tonic chord is minor. */
+enum class Mode(val scale: List<Int>, val german: String, val english: String, val minor: Boolean) {
+    DORIAN(listOf(0, 2, 3, 5, 7, 9, 10), "Dorisch", "Dorian", true),
+    PHRYGIAN(listOf(0, 1, 3, 5, 7, 8, 10), "Phrygisch", "Phrygian", true),
+    LYDIAN(listOf(0, 2, 4, 6, 7, 9, 11), "Lydisch", "Lydian", false),
+    MIXOLYDIAN(listOf(0, 2, 4, 5, 7, 9, 10), "Mixolydisch", "Mixolydian", false),
+}
+
+/** A key: tonic pitch class and major or (natural) minor, or one of the other modes. */
+data class Key(val tonic: Int, val minor: Boolean, val mode: Mode? = null) {
+    /** "A-Dur", "fis-Moll", "D-Dorisch" (German) or "A major", "F# minor". */
     fun name(notation: Notation = Notation()): String {
         val note = Chord.noteName(tonic, notation)
-        return if (minor) "${note.lowercase()}-Moll" else "$note-Dur"
+        return when {
+            mode != null -> "$note-${mode.german}"
+            minor -> "${note.lowercase()}-Moll"
+            else -> "$note-Dur"
+        }
     }
 
     /** The scale degrees of the key, as intervals above the tonic. */
-    val scale: List<Int> get() = if (minor) MINOR_SCALE else MAJOR_SCALE
+    val scale: List<Int> get() = mode?.scale ?: if (minor) MINOR_SCALE else MAJOR_SCALE
 
     companion object {
-        private val MAJOR_SCALE = listOf(0, 2, 4, 5, 7, 9, 11)
+        internal val MAJOR_SCALE = listOf(0, 2, 4, 5, 7, 9, 11)
         private val MINOR_SCALE = listOf(0, 2, 3, 5, 7, 8, 10)
 
-        /** "A", "Am", "A-Dur", "a-Moll", "fis-moll", "Es" ... */
+        /** Mode words at the end of a key: "D-Dorisch", "F lydian"; "lydisch" is checked after "mixolydisch". */
+        private val MODE_WORDS: List<Pair<String, Mode?>> = buildList {
+            Mode.entries.forEach { add(it.german.lowercase() to it); add(it.english.lowercase() to it) }
+            add("ionisch" to null); add("ionian" to null)
+        }.sortedByDescending { it.first.length }
+        private val AEOLIAN = listOf("äolisch", "aeolisch", "aeolian")
+
+        /** "A", "Am", "A-Dur", "a-Moll", "fis-moll", "Es", "D-Dorisch", "F-Lydisch" ... */
         fun parse(text: String, german: Boolean = false): Key? {
             val t = text.trim()
             if (t.isEmpty()) return null
+            val lowerText = t.lowercase()
+            AEOLIAN.firstOrNull { lowerText.endsWith(it) }?.let { word ->
+                return parse(t.dropLast(word.length).trimEnd('-', ' ') + "-Moll", german)
+            }
+            MODE_WORDS.firstOrNull { lowerText.endsWith(it.first) }?.let { (word, mode) ->
+                val chord = Chord.parse(t.dropLast(word.length).trimEnd('-', ' '), german) ?: return null
+                return Key(chord.root, mode?.minor ?: false, mode)
+            }
             val lower = t.lowercase()
             val minorWord = lower.endsWith("moll") || lower.endsWith("minor")
             val stripped = t.replace(Regex("(?i)[- ]?(dur|moll|major|minor)$"), "")
@@ -50,6 +77,13 @@ object Harmony {
     /** Degree index and accidental ("", "b", "#") of [pc] in [key]. */
     private fun degree(pc: Int, key: Key): Pair<Int, String> {
         val interval = ((pc - key.tonic) % 12 + 12) % 12
+        // Modes are counted against major, as usual: Dorian i ii bIII IV v vi° bVII, Lydian #iv°.
+        key.mode?.let { mode ->
+            val index = mode.scale.indexOf(interval)
+            if (index < 0) return degree(pc, Key(key.tonic, false))
+            val shift = interval - Key.MAJOR_SCALE[index]
+            return index to if (shift < 0) "b" else if (shift > 0) "#" else ""
+        }
         val scale = key.scale
         scale.indexOf(interval).takeIf { it >= 0 }?.let { return it to "" }
         // Outside the scale: a major key flattens (bIII, bVI, bVII), a minor key sharpens the

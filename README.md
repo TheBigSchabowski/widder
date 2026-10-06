@@ -32,6 +32,28 @@ Am(add9), Amaj(add9), A7, Amaj7, Am/C, Am/E, Amaj, A/C#, A/E, A-Oktave, A5 – j
 Erkennen, dazu ein paar Folgen daraus (u. a. Amaj → A/C# → A/E). Die falschen Kacheln kommen aus
 dem Kit selbst. Amaj klingt in Grundstellung ohne Extra-Bass, die Umkehrungen mit tiefem Basston.
 
+**Weitere Startkits** (Akkord-Training → „Hinzufügen“, jedes mit eigenem Ordner):
+
+| Startkit | Inhalt |
+|---|---|
+| Intervalle gleichzeitig | alle 24 Intervalle von der kleinen Sekunde bis zur Quintdezime, beide Töne zusammen |
+| Intervalle nacheinander | dieselben, erst der tiefe, dann der hohe Ton |
+| Akkordtypen | Cmaj, Cmaj7, Cmin, Cmin7, Cmaj(add9), Cmin(add9) in allen Umkehrungen – alle sechs liegen immer im Vorrat |
+| Stufen in C-Dur | jede Stufe nach der I (C → F = I IV) und typische Folgen (I IV V I, I V vi IV, ii V I …), angezeigt nur als Stufen |
+| Stufen in a-Moll | i ii° III iv v V VI VII – mit E-Dur als Dominante (i iv V i, Andalusische Kadenz …) |
+| D-Dorisch, E-Phrygisch, F-Lydisch, G-Mixolydisch | die Modi auf den weißen Tasten, Stufen wie üblich gegen Dur gezählt (Dorisch i ii bIII IV v vi° bVII) |
+
+In den Stufen- und Modus-Kits klingen die Akkorde nach dem ersten auch in Umkehrungen; die Lösung
+bleibt der Akkord selbst („F“, nicht „F/A“). Welche Umkehrung erklingt, steht in den
+**Bemerkungen** der Karte – ein Feld, das nur der Editor zeigt, beim Lernen bleibt es versteckt.
+Als Tonart verstehen Stapel und Karten jetzt auch Modi: `D-Dorisch`, `F lydisch`, `G-Mixolydian`.
+
+Jedes Intervall beginnt auf einem anderen Ton, damit die Tonhöhe nichts verrät; als falsche
+Kacheln kommen die Nachbarn (kleine statt große Terz) und dasselbe Intervall eine Oktave weiter.
+Intervalle werden auch in Dateinamen verstanden (`kleine Terz.mid`, `große Sexte.wav`), und eine
+MIDI-Datei ohne Lösung im Namen, die aus genau zwei Tönen besteht, wird als Intervall erkannt.
+In den Stapel-Optionen lässt sich die Stufen-Anzeige pro Stapel festlegen (aus / I (A) / nur I).
+
 Verstanden werden u. a. `m min - moll`, `7 maj7 M7 Δ`, `m7 m7b5 ø dim dim7 aug sus2 sus4 6 9 add9`,
 Slash-Akkorde (`C/E`) und deutsche Namen (`H`, `Fis`, `Es`, `As`, `Cism`, `Des-Dur`).
 In den Einstellungen: „Deutsche Notennamen“ (B = Bb).

@@ -70,7 +70,7 @@ fun ReviewScreen(vm: AppViewModel) {
                                     if (label != null) {
                                         Chip(label, Palette.chords, large = true)
                                     } else {
-                                        ChordChips(vm, vm.tokensOf(card), vm.keyFor(card), large = true)
+                                        ChordChips(vm, vm.tokensOf(card), vm.keyFor(card), large = true, deckId = card.deckId)
                                     }
                                 }
                             }

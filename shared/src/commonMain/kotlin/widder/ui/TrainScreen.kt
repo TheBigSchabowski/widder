@@ -112,11 +112,14 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
     // A card with a text of its own ("Son Clave") has no key: no numerals, the text comes after checking.
     val cardLabel = session.card?.label
     val key = session.card?.takeIf { cardLabel == null }?.let { vm.keyFor(it) }
+    val mode = vm.numeralMode(session.deckId)
+    // Intervals are no chords: the wording follows what is asked.
+    val intervals = round.answer.all { it.interval != null }
     val label: (Tile) -> Pair<String, String?> = { tile ->
-        val numeral = vm.numeral(tile.token, key)
+        val numeral = vm.numeral(tile.token, key, session.deckId)
         when {
             numeral == null -> tile.token.text to null
-            vm.settings.numerals == widder.core.NumeralMode.ONLY -> numeral to null
+            mode == widder.core.NumeralMode.ONLY -> numeral to null
             else -> tile.token.text to numeral
         }
     }
@@ -141,6 +144,8 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                 Text(
                     when {
                         round.checked -> resultText(round)
+                        intervals && round.answer.size == 1 -> "Welches Intervall ist das? Zieh es ins Feld"
+                        intervals -> "Zieh die Intervalle in die Reihenfolge, in der du sie hörst"
                         round.answer.size == 1 -> "Welcher Akkord ist das? Zieh ihn ins Feld"
                         else -> "Zieh die Akkorde in die Reihenfolge, in der du sie hörst"
                     },
@@ -153,7 +158,7 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                     },
                     textAlign = TextAlign.Center,
                 )
-                if (key != null && vm.settings.numerals != widder.core.NumeralMode.OFF) {
+                if (key != null && !intervals && mode != widder.core.NumeralMode.OFF) {
                     Text(
                         "Stufen in ${vm.keyName(key)}",
                         Modifier.padding(top = 4.dp),
@@ -181,7 +186,7 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                     Text("Richtig wäre:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
-                        round.answer.forEach { Chip(vm.chordLabel(it, key), Palette.good) }
+                        round.answer.forEach { Chip(vm.chordLabel(it, key, session.deckId), Palette.good) }
                     }
                 }
 
@@ -195,7 +200,7 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                 ) {
                     if (pool.isEmpty()) {
                         Text(
-                            if (round.checked) "" else "Alle Akkorde liegen – prüfen!",
+                            if (round.checked) "" else if (intervals) "Alles liegt – prüfen!" else "Alle Akkorde liegen – prüfen!",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -232,6 +237,7 @@ private fun resultText(round: ChordRound): String {
     val wrong = round.result?.count { !it } ?: 0
     return when {
         wrong == 0 -> "Richtig!"
+        round.answer.size == 1 -> "Leider falsch"
         wrong == 1 -> "Fast – einer liegt falsch"
         else -> "$wrong liegen falsch"
     }

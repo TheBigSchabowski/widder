@@ -139,6 +139,55 @@ fun main() {
         vm.editor!!.answer = "Am F C G"
         vm.generateChordAudio()
     }
+    fun AppViewModel.trainKit(kit: String, answer: List<String>) {
+        addStarterKit(kit)
+        startTraining(kit)
+        val session = training!!
+        val card = cardsIn(kit).first { it.answer == answer }
+        session.card = card
+        session.round = widder.core.ChordRound(
+            tokensOf(card), deck(kit)!!.distractors, notation, kotlin.random.Random(3),
+            deck(kit)!!.pool.map { widder.music.Token.of(it) },
+        )
+        session.version++
+    }
+    render("intervall") { it.trainKit(widder.ui.StarterKits.INTERVALS_TOGETHER_ID, listOf("übermäßige Undezime")) }
+    render("intervall-falsch") { vm ->
+        vm.trainKit(widder.ui.StarterKits.INTERVALS_APART_ID, listOf("kleine Terz"))
+        val round = vm.training!!.round!!
+        vm.tapTile(round.pool.first { it.token.key != round.answer[0].key })
+        vm.checkRound()
+    }
+    render("akkordtypen") { it.trainKit(widder.ui.StarterKits.CHORD_TYPES_ID, listOf("Cmin7")) }
+    render("stufen") { vm ->
+        vm.trainKit(widder.ui.StarterKits.DEGREES_ID, listOf("C", "Am", "F", "G"))
+        val round = vm.training!!.round!!
+        vm.placeTile(round.pool.first { it.token.key == round.answer[0].key }, 0)
+    }
+    render("stufen-richtig") { vm ->
+        vm.trainKit(widder.ui.StarterKits.DEGREES_ID, listOf("C", "F", "G", "C"))
+        val round = vm.training!!.round!!
+        round.answer.forEachIndexed { i, t -> vm.placeTile(round.pool.first { p -> p.token.key == t.key && round.inPool(p) }, i) }
+        vm.checkRound()
+    }
+    render("dorisch") { vm ->
+        vm.trainKit("startkit-d-dorisch", listOf("Dm", "C", "G", "Dm"))
+        val round = vm.training!!.round!!
+        vm.placeTile(round.pool.first { it.token.key == round.answer[0].key }, 0)
+    }
+    render("editor-bemerkungen") { vm ->
+        vm.addStarterKit("startkit-stufen-a-moll")
+        vm.editCard(vm.cardsIn("startkit-stufen-a-moll").first { it.answer == listOf("Am", "Dm", "E", "Am") })
+    }
+    render("stufen-liste") { vm ->
+        vm.addStarterKit(widder.ui.StarterKits.DEGREES_ID)
+        vm.open(Screen.Browse(widder.ui.StarterKits.DEGREES_ID))
+    }
+    render("stapel-optionen") { vm ->
+        vm.addStarterKit(widder.ui.StarterKits.DEGREES_ID)
+        vm.open(Screen.Decks(DeckKind.CHORDS))
+        vm.deckDialog = widder.ui.DeckDialog.Options(widder.ui.StarterKits.DEGREES_ID)
+    }
     render("kacheln") { it.open(Screen.Tiles) }
     render("kacheln-3x4") { vm ->
         vm.updateSettings { it.copy(tileColumns = 3, tileRows = 4) }
