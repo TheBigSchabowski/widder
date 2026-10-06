@@ -97,6 +97,7 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
     var distractors by remember { mutableStateOf(deck.distractors) }
     var key by remember { mutableStateOf(deck.key ?: "") }
     var numerals by remember { mutableStateOf(deck.numerals) }
+    var shuffle by remember { mutableStateOf(deck.shuffle) }
     AlertDialog(
         onDismissRequest = { vm.deckDialog = null },
         title = { Text("Stapel-Optionen") },
@@ -123,6 +124,11 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
                         widder.core.NumeralMode.ONLY -> "nur I"
                     }
                 }) { numerals = it }
+                SwitchRow(
+                    "Mischen",
+                    "Jedes Mal eine neue Reihenfolge, damit du die Klänge lernst und nicht, was nach was kommt",
+                    shuffle,
+                ) { shuffle = it }
                 if (deck.kind == DeckKind.CHORDS) {
                     Text("Falsche Zusatz-Kacheln im Vorrat: $distractors", style = MaterialTheme.typography.bodyMedium)
                     Slider(distractors.toFloat(), { distractors = it.roundToInt() }, valueRange = 0f..6f, steps = 5)
@@ -152,6 +158,7 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
                         distractors = distractors,
                         key = key.trim().ifEmpty { null },
                         numerals = numerals,
+                        shuffle = shuffle,
                     ),
                 )
             }) { Text("Speichern") }

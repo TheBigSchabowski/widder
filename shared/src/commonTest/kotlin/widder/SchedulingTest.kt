@@ -74,6 +74,31 @@ class SchedulingTest {
         assertEquals(1, progress.streak(now))
     }
 
+    /** The order in which a whole session of new cards comes, all answered Easy. */
+    private fun order(deck: Deck, cards: List<Card>, seed: Int?): List<String> {
+        var progress = Progress()
+        return generateSequence { Queue(deck, cards, progress, now, seed).next()?.also { progress = progress.answer(it, Grade.EASY, 1, now) } }
+            .map { it.id }.toList()
+    }
+
+    @Test
+    fun shuffledQueueMixesTheOrder() {
+        val deck = Deck("d", "Intervalle", newPerDay = 50)
+        val cards = (1..24).map { Card("startkit-intervalle-$it", "d", created = it.toLong()) }
+        val made = cards.map { it.id }
+        assertEquals(made, order(deck, cards, seed = null))
+        val first = order(deck, cards, seed = 1)
+        val second = order(deck, cards, seed = 2)
+        // Every card once, but neither in the made order nor the same each session.
+        assertEquals(made.toSet(), first.toSet())
+        assertEquals(24, first.size)
+        assertTrue(first != made && second != made && first != second, "$first")
+        assertEquals(first, order(deck, cards, seed = 1))
+        // Not just the made order turned a little: neighbours are seldom neighbours.
+        val neighbours = first.zipWithNext().count { (a, b) -> made.indexOf(b) - made.indexOf(a) == 1 }
+        assertTrue(neighbours <= 4, "$first")
+    }
+
     @Test
     fun chordRoundDragAndDrop() {
         val answer = AnswerParser.parse("A D G F.wav")

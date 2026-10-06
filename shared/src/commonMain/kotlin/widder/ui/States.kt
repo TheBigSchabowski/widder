@@ -83,7 +83,8 @@ class CardEditor(val original: Card?, val deckId: String, val kind: DeckKind) {
     }
 }
 
-class ReviewSession(val deckId: String) {
+/** [seed] mixes the order of the cards (see Queue); null = the order they were made. */
+class ReviewSession(val deckId: String, var seed: Int? = null) {
     var card by mutableStateOf<Card?>(null)
     var showAnswer by mutableStateOf(false)
     var shownAt = 0L
@@ -94,7 +95,7 @@ class ReviewSession(val deckId: String) {
     var nextDue by mutableStateOf<Long?>(null)
 }
 
-class TrainSession(val deckId: String) {
+class TrainSession(val deckId: String, var seed: Int? = null) {
     var card by mutableStateOf<Card?>(null)
     var round by mutableStateOf<ChordRound?>(null)
 
@@ -156,4 +157,4 @@ class Confirm(val title: String, val text: String, val action: String, val run: 
 class RewardImages(val sharp: ImageBitmap, val blurred: ImageBitmap)
 
 /** Keys the desktop app forwards while learning. */
-enum class KeyCommand { SPACE, ENTER, ONE, TWO, THREE, FOUR, UNDO, REPLAY, EDIT, BACKSPACE, ESCAPE }
+enum class KeyCommand { SPACE, ENTER, ONE, TWO, THREE, FOUR, UNDO, REPLAY, EDIT, SHUFFLE, BACKSPACE, ESCAPE }

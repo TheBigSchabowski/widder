@@ -139,6 +139,7 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                     SmallButton("Audio bearbeiten", {
                         session.card?.let { vm.openAudioEditor(ClipTarget.StoredCard(it.id, back = false)) }
                     }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SmallButton("Mischen", vm::shuffle, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.height(14.dp))
                 Text(

@@ -20,6 +20,7 @@ import widder.core.TileScope
 import widder.core.Store
 import widder.ui.AppViewModel
 import widder.ui.Screen
+import widder.ui.KeyCommand
 import widder.ui.StarterKits
 import widder.ui.tileIndexAt
 import androidx.compose.ui.geometry.Offset
@@ -113,6 +114,28 @@ class ActionsTest {
         assertFalse(vm.onTileGesture(0, long = true), "an empty field lets everything through")
         vm.updateSettings { it.copy(tileScope = TileScope.OFF) }
         assertFalse(vm.tilesActive())
+    }
+
+    @Test
+    fun shuffleButtonAndDeckOption() {
+        val vm = vm()
+        val deck = vm.deck(StarterKits.A_CARDS_ID)!!
+        assertTrue(deck.shuffle, "mixed unless switched off")
+        // Switched off: the order the cards were made, until the button mixes them.
+        vm.updateDeck(deck.copy(shuffle = false))
+        vm.startReview(deck.id)
+        val first = vm.cardsIn(deck.id).minBy { it.created }
+        assertEquals(first.id, vm.review!!.card!!.id)
+        assertTrue(vm.onKey(KeyCommand.SHUFFLE))
+        assertTrue(vm.review!!.card!!.id != first.id, "the current card goes back into the pile")
+        assertEquals(Screen.Review(deck.id), vm.screen)
+
+        vm.home()
+        vm.startTraining(StarterKits.A_CHORDS_ID)
+        val exercise = vm.training!!.card!!.id
+        vm.shuffle()
+        assertTrue(vm.training!!.card!!.id != exercise)
+        assertEquals(0, vm.training!!.answered, "mixing is no answer")
     }
 
     @Test

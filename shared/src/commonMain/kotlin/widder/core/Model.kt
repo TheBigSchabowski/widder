@@ -21,6 +21,8 @@ data class Deck(
     val key: String? = null,
     /** How this deck labels its chords; null = as in the settings. */
     val numerals: NumeralMode? = null,
+    /** New cards and reviews in a new mixed order every session, not in the order they were made. */
+    val shuffle: Boolean = true,
     /** A folder this deck mirrors (see FolderAccess); every audio/MIDI file in it is a card. */
     val folder: String? = null,
     val created: Long = 0,

@@ -32,7 +32,7 @@ fun main() {
     fun render(name: String, setup: (AppViewModel) -> Unit) {
         for ((label, size) in sizes) {
             val dir = Files.createTempDirectory("widder").toFile()
-            val vm = AppViewModel(Store(DirectoryStore(dir)), SilentAudio.system, live = false, main = Dispatchers.Unconfined, work = Dispatchers.Unconfined)
+            val vm = AppViewModel(Store(DirectoryStore(dir)), SilentAudio.system, live = false, main = Dispatchers.Unconfined, work = Dispatchers.Unconfined, random = kotlin.random.Random(1))
             setup(vm)
             val (w, h) = size
             ImageComposeScene(w * 2, h * 2, Density(2f)) { App(vm) }.use { scene ->

@@ -9,12 +9,16 @@ data class DeckCounts(val new: Int, val learning: Int, val review: Int) {
  * Decides which card comes next, the way Anki does: learning cards whose step is over first,
  * then due reviews, then new cards up to the daily limit. Learning cards that are due within
  * [LEARN_AHEAD_MS] are shown early once nothing else is left.
+ *
+ * With a [seed], new cards and due reviews come in an order mixed by it instead of as they were
+ * made: in music the order itself is learned otherwise (the third interval is always the Terz).
  */
 class Queue(
     private val deck: Deck,
     private val cards: List<Card>,
     private val progress: Progress,
     private val now: Long = currentTimeMillis(),
+    private val seed: Int? = null,
 ) {
     private val day = Store.learningDay(now)
     private val endOfDay = Fsrs.startOfDay(now, 1)
@@ -29,9 +33,10 @@ class Queue(
 
     private val reviews = active
         .filter { state(it)?.phase == Phase.REVIEW && state(it)!!.due < endOfDay }
-        .sortedBy { state(it)!!.due }
+        .let { due -> if (seed == null) due.sortedBy { state(it)!!.due } else due.sortedBy { mix(it.id, seed) } }
 
-    private val newCards = active.filter { (state(it)?.phase ?: Phase.NEW) == Phase.NEW }.sortedBy { it.created }
+    private val newCards = active.filter { (state(it)?.phase ?: Phase.NEW) == Phase.NEW }
+        .let { new -> if (seed == null) new.sortedBy { it.created } else new.sortedBy { mix(it.id, seed) } }
 
     private val newLeft = (deck.newPerDay - (progress.newIntroduced["$day|${deck.id}"] ?: 0)).coerceAtLeast(0)
     private val reviewsLeft = (deck.reviewsPerDay - (progress.reviewsDone["$day|${deck.id}"] ?: 0)).coerceAtLeast(0)
@@ -58,6 +63,14 @@ class Queue(
 
     companion object {
         const val LEARN_AHEAD_MS = 20 * Fsrs.MINUTE_MS
+
+        /** A place in the mixed order. Ids differing only in their last digit land far apart. */
+        fun mix(id: String, seed: Int): Long {
+            var z = id.hashCode().toLong() * -0x61c8864680b583ebL + seed
+            z = (z xor (z ushr 30)) * -0x40a7b892e31b1a47L
+            z = (z xor (z ushr 27)) * -0x6b2fb644ecceee15L
+            return z xor (z ushr 31)
+        }
     }
 }
 
