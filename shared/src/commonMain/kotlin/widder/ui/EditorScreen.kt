@@ -79,13 +79,14 @@ fun EditorScreen(vm: AppViewModel) {
                     SectionTitle("Titel (nur in der Übersicht)")
                     OutlinedTextField(e.front, { e.front = it }, Modifier.fillMaxWidth(), singleLine = true)
                 }
-                SectionTitle("Bemerkungen (nur hier sichtbar)")
+                val cards = e.kind == DeckKind.CARDS
+                SectionTitle(if (cards) "Bemerkungen (auf der Rückseite)" else "Bemerkungen (nur hier sichtbar)")
                 OutlinedTextField(
                     e.notes,
                     { e.notes = it },
                     Modifier.fillMaxWidth(),
                     minLines = 2,
-                    placeholder = { Text("z. B. welche Umkehrung erklingt – beim Lernen versteckt") },
+                    placeholder = { Text(if (cards) "z. B. welche Umkehrung erklingt" else "z. B. welche Umkehrung erklingt – beim Training versteckt") },
                 )
                 val original = e.original
                 if (original != null) {

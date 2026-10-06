@@ -3,6 +3,7 @@ package widder
 import kotlinx.coroutines.Dispatchers
 import widder.audio.SilentAudio
 import widder.core.DeckKind
+import widder.core.NumeralMode
 import widder.core.FileStore
 import widder.core.FolderAccess
 import widder.core.FolderFile
@@ -63,6 +64,34 @@ class FolderTest {
         .also { it.refreshFolders() }
 
     private fun midiOf(vararg chords: String) = Midi.write(MidiAnalysis.progression(chords.map { Chord.parse(it)!! }))
+
+    @Test
+    fun everyTrainingKitAlsoComesAsFlashCards() {
+        val vm = vm()
+        val twins = vm.missingKits(DeckKind.CARDS).map { it.id }
+        // The A chords come with a new collection, their cards included.
+        assertEquals(vm.missingKits(DeckKind.CHORDS).map { it.id + StarterKits.CARDS_SUFFIX }, twins)
+        // Training first, then its twin: they share the folder and its files, nothing is doubled.
+        vm.addStarterKit(StarterKits.CHORD_TYPES_ID)
+        twins.forEach { vm.addStarterKit(it) }
+        assertTrue(vm.missingKits(DeckKind.CARDS).isEmpty())
+        val types = vm.cardsIn(StarterKits.CHORD_TYPES_ID + StarterKits.CARDS_SUFFIX)
+        assertEquals(vm.cardsIn(StarterKits.CHORD_TYPES_ID).map { it.answer to it.notes }, types.map { it.answer to it.notes })
+        assertTrue(types.all { it.front == "Welcher Akkordtyp ist das?" })
+        assertEquals(DeckKind.CARDS, vm.deck(StarterKits.CHORD_TYPES_ID + StarterKits.CARDS_SUFFIX)!!.kind)
+        // One file per inversion, even though four cards are called Cmaj7.
+        assertEquals(vm.cardsIn(StarterKits.CHORD_TYPES_ID).size, folders.list("/widder/Startkit Akkordtypen")!!.size)
+        assertEquals(vm.cardsIn(StarterKits.CHORD_TYPES_ID).map { it.source }, types.map { it.source })
+        vm.syncFolder(StarterKits.CHORD_TYPES_ID + StarterKits.CARDS_SUFFIX)
+        assertEquals(types, vm.cardsIn(StarterKits.CHORD_TYPES_ID + StarterKits.CARDS_SUFFIX))
+        assertEquals(24, vm.cardsIn(StarterKits.INTERVALS_APART_ID + StarterKits.CARDS_SUFFIX).size)
+        // The degrees keep their key and numerals, and the answer is not on the front.
+        val degrees = vm.deck(StarterKits.DEGREES_ID + StarterKits.CARDS_SUFFIX)!!
+        assertEquals("C" to NumeralMode.ONLY, degrees.key to degrees.numerals)
+        val progression = vm.cardsIn(degrees.id).first { it.answer == listOf("C", "F", "G", "C") }
+        assertEquals("Welche Stufen hörst du?", progression.front)
+        assertEquals(4, progression.notes.lines().size)
+    }
 
     @Test
     fun newStarterKitsGetTheirOwnFolders() {

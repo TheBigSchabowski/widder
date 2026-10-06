@@ -86,7 +86,7 @@ data class Card(
      * ("Son Clave 3-2"). The chords still count in the training.
      */
     val label: String? = null,
-    /** Notes that only the editor shows, e.g. which inversion the audio plays. */
+    /** Notes on the back of a flash card and in the editor, e.g. which inversion the audio plays. */
     val notes: String = "",
     /** The file in the deck's folder this card comes from; the card follows that file. */
     val source: String? = null,
