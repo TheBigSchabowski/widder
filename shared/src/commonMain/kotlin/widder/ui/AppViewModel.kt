@@ -14,6 +14,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
+import kotlin.random.Random
 import widder.audio.AUDIO_EXTENSIONS
 import widder.audio.AudioSystem
 import widder.audio.Effects
@@ -69,6 +70,8 @@ class AppViewModel(
     main: CoroutineContext = Dispatchers.Main,
     /** Where decoding and rendering run; the screenshot renderer passes Unconfined to stay synchronous. */
     private val work: CoroutineContext = Dispatchers.Default,
+    /** Mixes the cards; the screenshot renderer passes a fixed one. */
+    private val random: Random = Random.Default,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + main)
 
@@ -605,8 +608,11 @@ class AppViewModel(
 
     // region review (flash cards)
 
+    /** A new mixed order for each session, where the deck wants one. */
+    private fun sessionSeed(deckId: String): Int? = if (deck(deckId)?.shuffle != false) random.nextInt() else null
+
     fun startReview(deckId: String) {
-        review = ReviewSession(deckId)
+        review = ReviewSession(deckId, sessionSeed(deckId))
         open(Screen.Review(deckId))
         nextReviewCard()
     }
@@ -614,7 +620,7 @@ class AppViewModel(
     private fun nextReviewCard(skip: String? = null) {
         val session = review ?: return
         val deck = deck(session.deckId) ?: return
-        val queue = Queue(deck, collection.cards, progress)
+        val queue = Queue(deck, collection.cards, progress, seed = session.seed)
         val card = queue.next(skip)
         session.card = card
         session.showAnswer = false
@@ -666,6 +672,23 @@ class AppViewModel(
         session.nextDue = null
     }
 
+    /**
+     * Mixes the cards anew, also in a deck that keeps its order, and puts the current one back:
+     * the next card is a different one where there is one.
+     */
+    fun shuffle() {
+        val seed = random.nextInt()
+        review?.takeIf { screen is Screen.Review }?.let { session ->
+            session.seed = seed
+            nextReviewCard(skip = session.card?.id)
+        }
+        training?.takeIf { screen is Screen.Train }?.let { session ->
+            session.seed = seed
+            nextExercise(skip = session.card?.id)
+        }
+        toast("Gemischt")
+    }
+
     fun suspendReviewCard() {
         val session = review ?: return
         val card = session.card ?: return
@@ -679,7 +702,7 @@ class AppViewModel(
     // region chord training
 
     fun startTraining(deckId: String) {
-        training = TrainSession(deckId)
+        training = TrainSession(deckId, sessionSeed(deckId))
         open(Screen.Train(deckId))
         nextExercise()
     }
@@ -687,7 +710,7 @@ class AppViewModel(
     private fun nextExercise(skip: String? = null) {
         val session = training ?: return
         val deck = deck(session.deckId) ?: return
-        val queue = Queue(deck, studyCards(deck), progress)
+        val queue = Queue(deck, studyCards(deck), progress, seed = session.seed)
         val card = queue.next(skip)
         session.card = card
         session.suggested = null
@@ -1350,6 +1373,7 @@ class AppViewModel(
                 KeyCommand.UNDO -> undoReview()
                 KeyCommand.REPLAY -> replay()
                 KeyCommand.EDIT -> session.card?.let { editCard(it) }
+                KeyCommand.SHUFFLE -> shuffle()
                 else -> return false
             }
             return true
@@ -1365,6 +1389,7 @@ class AppViewModel(
                 KeyCommand.THREE -> if (round.checked) gradeRound(Grade.GOOD) else return false
                 KeyCommand.FOUR -> if (round.checked) gradeRound(Grade.EASY) else return false
                 KeyCommand.EDIT -> session.card?.let { openAudioEditor(ClipTarget.StoredCard(it.id, back = false)) }
+                KeyCommand.SHUFFLE -> shuffle()
                 else -> return false
             }
             return true

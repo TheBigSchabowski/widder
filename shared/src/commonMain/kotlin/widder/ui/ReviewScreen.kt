@@ -90,6 +90,7 @@ fun ReviewScreen(vm: AppViewModel) {
                         if (session.undo != null) SmallButton("Rückgängig", vm::undoReview, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         SmallButton("Bearbeiten", { vm.editCard(card) }, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         SmallButton("Aussetzen", vm::suspendReviewCard, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SmallButton("Mischen", vm::shuffle, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

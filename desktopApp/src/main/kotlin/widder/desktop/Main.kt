@@ -164,6 +164,7 @@ private fun handleKey(vm: AppViewModel, event: KeyEvent): Boolean {
         event.key == Key.Four || event.key == Key.NumPad4 -> KeyCommand.FOUR
         event.key == Key.R -> KeyCommand.REPLAY
         event.key == Key.E -> KeyCommand.EDIT
+        event.key == Key.M -> KeyCommand.SHUFFLE
         event.key == Key.Backspace -> KeyCommand.BACKSPACE
         else -> null
     } ?: return false

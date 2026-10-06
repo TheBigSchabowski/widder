@@ -27,6 +27,11 @@ gezogen werden (Maus oder Finger; Tippen geht auch). Optional mischt Widder ähn
 Akkorde dazu (Stapel-Optionen). Die Bewertung wird vorgeschlagen und fließt in denselben
 FSRS-Scheduler.
 
+**Mischen:** Neue Karten und Wiederholungen kommen in jeder Sitzung in einer neuen Reihenfolge,
+nicht in der, in der sie angelegt wurden – sonst lernt man bei Intervallen die Reihenfolge statt
+der Klänge. Abschalten pro Stapel in den Stapel-Optionen („Mischen“). Der Knopf „Mischen“ beim
+Lernen und im Training (Taste M) mischt sofort neu und legt die aktuelle Karte zurück.
+
 **Startkit: A-Akkorde** (bei neuen Sammlungen dabei, sonst unter Akkord-Training → „Hinzufügen“):
 Am(add9), Amaj(add9), A7, Amaj7, Am/C, Am/E, Amaj, A/C#, A/E, A-Oktave, A5 – jeder einzeln zum
 Erkennen, dazu ein paar Folgen daraus (u. a. Amaj → A/C# → A/E). Die falschen Kacheln kommen aus
@@ -183,7 +188,7 @@ lassen sich über die installierte App aktualisieren. Das Icon kommt aus `tools/
 (`desktopApp/icon.png`, das Fenster-Icon unter Linux, ist daraus abgeleitet).
 
 Auf dem Computer (Mac, Linux): Dateien (auch ganze Ordner) einfach ins Fenster ziehen. Tastatur
-beim Abfragen: Leertaste, 1–4, R (nochmal hören), E (bearbeiten), ⌘Z bzw. Strg+Z; im Training
+beim Abfragen: Leertaste, 1–4, R (nochmal hören), E (bearbeiten), M (mischen), ⌘Z bzw. Strg+Z; im Training
 Enter = prüfen/weiter, ⌫ = letzten Akkord zurücklegen; Esc = zurück.
 Auf Android: „Importieren“, oder aus einer anderen App „Teilen → Widder“ / „Öffnen mit“.
 
