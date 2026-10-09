@@ -97,10 +97,12 @@ fun DecksScreen(vm: AppViewModel, kind: DeckKind) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DeckRow(vm: AppViewModel, deck: Deck, color: Color) {
     val counts = vm.counts(deck)
     val total = vm.cardsIn(deck.id).size
+    val tags = vm.tagsIn(deck.id)
     Panel {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -113,6 +115,16 @@ private fun DeckRow(vm: AppViewModel, deck: Deck, color: Color) {
                 )
                 Spacer(Modifier.height(6.dp))
                 CountRow(counts.new, counts.learning, counts.review)
+                if (tags.isNotEmpty()) {
+                    // Tapping a tag learns only its cards; "Alle" lifts the filter.
+                    FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Chip("Alle", color, filled = deck.studyTags.isEmpty(), modifier = Modifier.clickable { vm.setStudyTags(deck.id, emptyList()) })
+                        for (tag in tags) {
+                            val on = tag in deck.studyTags
+                            Chip(tag, color, filled = on, modifier = Modifier.clickable { vm.setStudyTags(deck.id, if (on) deck.studyTags - tag else deck.studyTags + tag) })
+                        }
+                    }
+                }
                 vm.folderLabel(deck)?.let {
                     Text(
                         "Ordner: $it",

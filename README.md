@@ -32,6 +32,28 @@ nicht in der, in der sie angelegt wurden – sonst lernt man bei Intervallen die
 der Klänge. Abschalten pro Stapel in den Stapel-Optionen („Mischen“). Der Knopf „Mischen“ beim
 Lernen und im Training (Taste M) mischt sofort neu und legt die aktuelle Karte zurück.
 
+**Standardpaket** (vorinstalliert, ab 1.8.0 auch in bestehenden Sammlungen – einmalig; ein danach
+gelöschter Stapel bleibt weg), jeweils als Akkord-Training und als Karteikarten:
+
+- **Startkit: Akkordtypen** – alle 32 Akkordtypen auf C in allen Umkehrungen (112 Übungen),
+  auch die Zweiklänge Oktave und Powerchord (C5, ohne Extra-Bass):
+  - `Basis`: Cmaj, Cmin, C5, C-Oktave, C7, Cmaj7, Cmin7
+  - `Mittel`: Csus2, Csus4, Cdim, Caug, C6, Cmin6, Cmaj(add9), Cmin(add9), Cadd4, Cmin(add4), C7sus4
+  - `Fortgeschritten`: Cdim7, Cmin7b5, CminMaj7, C7#5, C9, Cmaj9, Cmin9, C6add9, C7b9, C7#9, C11, Cmin11, C13, Cmaj13
+- **Startkit: Akkordfolgen** – 26 häufige Schritte von einem Akkord zum nächsten in C-Dur und
+  a-Moll (Tonika → Subdominante, Dominante → Tonika, Trugschluss, ii – V, Moll-Subdominante,
+  Doppeldominante …), angezeigt als Stufen. Vorweg klingt die Tonika als Bezug, denn V – I in C
+  klingt allein genau wie I – IV in G. Die Funktionen stehen in den Bemerkungen.
+
+Hatte ein Stapel schon die alten sechs Akkordtypen, bleiben deren Karten samt Lernstand und
+bekommen ihren Tag; die neuen kommen dazu.
+
+**Tags:** Hat ein Stapel getaggte Karten, stehen die Tags unter ihm in der Stapelliste (und in den
+Stapel-Optionen). Antippen lernt nur noch Karten mit diesem Tag – mehrere gehen zusammen
+(„Basis“ + „Mittel“), „Alle“ hebt den Filter auf. Im Training kommen dann auch die falschen
+Kacheln nur aus den gewählten Karten, also keine C13 zwischen Dur und Moll. Eigene Tags vergibt
+der Karten-Editor.
+
 **Startkit: A-Akkorde** (bei neuen Sammlungen dabei, sonst unter Akkord-Training → „Hinzufügen“):
 Am(add9), Amaj(add9), A7, Amaj7, Am/C, Am/E, Amaj, A/C#, A/E, A-Oktave, A5 – jeder einzeln zum
 Erkennen, dazu ein paar Folgen daraus (u. a. Amaj → A/C# → A/E). Die falschen Kacheln kommen aus
@@ -44,7 +66,6 @@ Karteikarten unter Karteikarten → „Hinzufügen“, mit demselben Ordner):
 |---|---|
 | Intervalle gleichzeitig | alle 24 Intervalle von der kleinen Sekunde bis zur Quintdezime, beide Töne zusammen |
 | Intervalle nacheinander | dieselben, erst der tiefe, dann der hohe Ton |
-| Akkordtypen | Cmaj, Cmaj7, Cmin, Cmin7, Cmaj(add9), Cmin(add9) in allen Umkehrungen – alle sechs liegen immer im Vorrat |
 | Stufen in C-Dur | jede Stufe nach der I (C → F = I IV) und typische Folgen (I IV V I, I V vi IV, ii V I …), angezeigt nur als Stufen |
 | Stufen in a-Moll | i ii° III iv v V VI VII – mit E-Dur als Dominante (i iv V i, Andalusische Kadenz …) |
 | D-Dorisch, E-Phrygisch, F-Lydisch, G-Mixolydisch | die Modi auf den weißen Tasten, Stufen wie üblich gegen Dur gezählt (Dorisch i ii bIII IV v vi° bVII) |

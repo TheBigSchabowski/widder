@@ -194,6 +194,28 @@ fun main() {
         vm.open(Screen.Decks(DeckKind.CHORDS))
         vm.deckDialog = widder.ui.DeckDialog.Options(widder.ui.StarterKits.DEGREES_ID)
     }
+    render("akkordtypen-tags") { vm ->
+        vm.setStudyTags(widder.ui.StarterKits.CHORD_TYPES_ID, listOf("Basis"))
+        vm.open(Screen.Decks(DeckKind.CHORDS))
+    }
+    render("akkordtypen-optionen") { vm ->
+        vm.setStudyTags(widder.ui.StarterKits.CHORD_TYPES_ID, listOf("Mittel", "Fortgeschritten"))
+        vm.open(Screen.Decks(DeckKind.CHORDS))
+        vm.deckDialog = widder.ui.DeckDialog.Options(widder.ui.StarterKits.CHORD_TYPES_ID)
+    }
+    render("akkordtypen-c13") { it.trainKit(widder.ui.StarterKits.CHORD_TYPES_ID, listOf("C13")) }
+    render("akkordfolgen") { vm ->
+        vm.trainKit(widder.ui.StarterKits.PROGRESSIONS_ID, listOf("Dm", "G"))
+        val round = vm.training!!.round!!
+        round.answer.forEachIndexed { i, t -> vm.placeTile(round.pool.first { p -> p.token.key == t.key && round.inPool(p) }, i) }
+        vm.checkRound()
+    }
+    render("akkordfolgen-karte") { vm ->
+        val id = widder.ui.StarterKits.PROGRESSIONS_ID + widder.ui.StarterKits.CARDS_SUFFIX
+        vm.startReview(id)
+        vm.review!!.card = vm.cardsIn(id).first { it.answer == listOf("G", "Am") }
+        vm.showAnswer()
+    }
     render("kacheln") { it.open(Screen.Tiles) }
     render("kacheln-3x4") { vm ->
         vm.updateSettings { it.copy(tileColumns = 3, tileRows = 4) }

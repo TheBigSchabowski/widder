@@ -2,7 +2,12 @@ package widder
 
 import kotlinx.coroutines.Dispatchers
 import widder.audio.SilentAudio
+import widder.core.Card
+import widder.core.Deck
 import widder.core.DeckKind
+import widder.core.Grade
+import widder.core.Progress
+import widder.core.answer
 import widder.core.NumeralMode
 import widder.core.FileStore
 import widder.core.FolderAccess
@@ -99,7 +104,7 @@ class FolderTest {
         val vm = vm(store)
         val kits = vm.missingKits(DeckKind.CHORDS).map { it.id }
         assertEquals(
-            listOf(StarterKits.INTERVALS_TOGETHER_ID, StarterKits.INTERVALS_APART_ID, StarterKits.CHORD_TYPES_ID) + StarterKits.SCALES.map { it.id },
+            listOf(StarterKits.INTERVALS_TOGETHER_ID, StarterKits.INTERVALS_APART_ID) + StarterKits.SCALES.map { it.id },
             kits,
         )
         kits.forEach { vm.addStarterKit(it) }
@@ -107,7 +112,7 @@ class FolderTest {
         assertEquals(24, vm.cardsIn(StarterKits.INTERVALS_TOGETHER_ID).size)
         assertEquals(24, vm.cardsIn(StarterKits.INTERVALS_APART_ID).size)
         // Triads in three positions, sevenths in four, add9 with root, third or fifth in the bass.
-        assertEquals(3 + 4 + 3 + 4 + 3 + 3, vm.cardsIn(StarterKits.CHORD_TYPES_ID).size)
+        assertEquals(21 + 36 + 55, vm.cardsIn(StarterKits.CHORD_TYPES_ID).size)
         val maj7 = vm.cardsIn(StarterKits.CHORD_TYPES_ID).filter { it.answer == listOf("Cmaj7") }.map { it.notes }
         assertEquals(listOf("Cmaj7: Grundstellung", "Cmaj7/E: 1. Umkehrung (Terz im Bass)", "Cmaj7/G: 2. Umkehrung (Quinte im Bass)", "Cmaj7/H: 3. Umkehrung (Septime im Bass)"), maj7)
         val together = folders.list("/widder/Startkit Intervalle gleichzeitig")!!.map { it.name }.toSet()
@@ -136,6 +141,96 @@ class FolderTest {
         assertEquals("i – iv – V – i", minor.front)
         val type = vm.cardsIn(StarterKits.CHORD_TYPES_ID).first { it.answer == listOf("Cmin7") }
         assertEquals("Cmin7", vm.chordLabel(vm.tokensOf(type).single(), vm.keyFor(type), type.deckId))
+    }
+
+    @Test
+    fun aNewCollectionHasTheStandardKitsWithLevels() {
+        val store = Store(MemoryStore())
+        val vm = vm(store)
+        StarterKits.STANDARD.forEach { assertNotNull(vm.deck(it), it) }
+        val types = vm.cardsIn(StarterKits.CHORD_TYPES_ID)
+        assertEquals(StarterKits.LEVELS, vm.tagsIn(StarterKits.CHORD_TYPES_ID))
+        assertTrue(types.all { it.tags.size == 1 })
+        assertEquals(setOf("Cmaj", "Cmin", "C5", "C-Oktave", "C7", "Cmaj7", "Cmin7"), types.filter { "Basis" in it.tags }.map { it.answer.single() }.toSet())
+        assertTrue(types.any { it.answer == listOf("Cdim7") && "Fortgeschritten" in it.tags })
+        // Two-note sounds stay two notes: no extra bass under the octave and the power chord.
+        val octave = types.single { it.answer == listOf("C-Oktave") }
+        assertEquals(listOf(60, 72), Midi.parse(store.readMedia(octave.frontAudio!!.file)!!).notes.map { it.pitch }.sorted())
+        assertEquals(2, types.count { it.answer == listOf("C5") })
+        assertEquals("Csus4/F: 1. Umkehrung (Quarte im Bass)", types.single { it.answer == listOf("Csus4") && it.notes.contains("/F") }.notes)
+        assertEquals("C6/A: 3. Umkehrung (Sexte im Bass)", types.single { it.answer == listOf("C6") && it.notes.contains("/A") }.notes)
+        // Every card id is different, also in the flash-card twin.
+        val twin = vm.cardsIn(StarterKits.CHORD_TYPES_ID + StarterKits.CARDS_SUFFIX)
+        assertEquals(types.size, (types + twin).map { it.id }.toSet().size / 2)
+
+        val steps = vm.cardsIn(StarterKits.PROGRESSIONS_ID)
+        assertEquals(StarterKits.STEPS.size, steps.size)
+        val plagal = steps.single { it.answer == listOf("F", "C") }
+        // Same chords, other key: in C major E – Am is a secondary dominant, III – vi.
+        val secondary = steps.single { it.answer == listOf("E", "Am") && it.key == "C" }
+        assertEquals("III – vi", secondary.front)
+        assertEquals("IV – I", plagal.front)
+        assertEquals(listOf("IV", "I"), vm.tokensOf(plagal).map { vm.chordLabel(it, vm.keyFor(plagal), plagal.deckId) })
+        val minor = steps.single { it.answer == listOf("E", "Am") && it.key == "a-Moll" }
+        assertEquals(listOf("V", "i"), vm.tokensOf(minor).map { vm.chordLabel(it, vm.keyFor(minor), minor.deckId) })
+        // The tonic comes first as the reference, then the two chords.
+        val heard = MidiAnalysis.segments(Midi.parse(store.readMedia(minor.frontAudio!!.file)!!))
+        assertEquals(listOf(9, 4, 9), heard.map { s -> s.pitches.min() % 12 })
+        assertTrue(folders.list("/widder/Startkit Akkordfolgen")!!.isNotEmpty())
+    }
+
+    @Test
+    fun learningOnlyATagLeavesTheOtherCardsOut() {
+        val vm = vm()
+        val deck = vm.deck(StarterKits.CHORD_TYPES_ID)!!
+        assertEquals(20, vm.counts(deck).new)
+        vm.updateDeck(deck.copy(newPerDay = 500))
+        vm.setStudyTags(deck.id, listOf("Basis"))
+        assertEquals(21, vm.counts(vm.deck(deck.id)!!).new)
+        vm.setStudyTags(deck.id, listOf("Fortgeschritten", "Basis", "gibt es nicht"))
+        assertEquals(listOf("Basis", "Fortgeschritten"), vm.deck(deck.id)!!.studyTags)
+        assertEquals(21 + 55, vm.counts(vm.deck(deck.id)!!).new)
+        // The wrong tiles come from the basic types only.
+        vm.setStudyTags(deck.id, listOf("Basis"))
+        repeat(5) {
+            vm.startTraining(deck.id)
+            val tiles = vm.training!!.round!!.pool.map { it.token.text }
+            assertTrue(tiles.all { it in StarterKits.CHORD_TYPE_LEVELS.first().second }, "$tiles")
+            vm.back()
+        }
+    }
+
+    @Test
+    fun theOldChordTypesKitGrowsAndKeepsItsProgress() {
+        val store = Store(MemoryStore())
+        // A collection from 1.7: the six types under their old ids, one of them learned.
+        val old = AppViewModel(store, SilentAudio.system, hooks, live = false, main = Dispatchers.Unconfined, work = Dispatchers.Unconfined)
+        val oldTypes = listOf("Cmaj", "Cmaj7", "Cmin", "Cmin7", "Cmaj(add9)", "Cmin(add9)")
+        val oldCards = oldTypes.flatMap { name -> Chord.parse(name)!!.inversions().map { name to it } }.mapIndexed { i, (name, played) ->
+            val position = if (played.bass == null) "Grundstellung" else null
+            Card("${StarterKits.CHORD_TYPES_ID}-$i", StarterKits.CHORD_TYPES_ID, front = name, answer = listOf(name), notes = position?.let { "$name: $it" } ?: "x$i")
+        }
+        val c = old.collection.copy(
+            decks = old.collection.decks.filter { it.id !in StarterKits.STANDARD } + Deck(StarterKits.CHORD_TYPES_ID, "Startkit: Akkordtypen", DeckKind.CHORDS, pool = oldTypes),
+            cards = old.collection.cards.filter { it.deckId !in StarterKits.STANDARD } + oldCards,
+            settings = old.collection.settings.copy(standardKits = 0),
+        )
+        store.saveCollection(c)
+        store.saveProgress(Progress().answer(oldCards[0], Grade.GOOD, 0))
+        val vm = vm(store)
+        val types = vm.cardsIn(StarterKits.CHORD_TYPES_ID)
+        // The root position of Cmaj is still the learned card, now tagged; nothing came twice.
+        val cmaj = types.single { it.answer == listOf("Cmaj") && it.notes == "Cmaj: Grundstellung" }
+        assertEquals(oldCards[0].id, cmaj.id)
+        assertEquals(listOf("Basis"), cmaj.tags)
+        assertNotNull(vm.progress.cards[cmaj.id])
+        assertEquals(StarterKits.CHORD_TYPES, vm.deck(StarterKits.CHORD_TYPES_ID)!!.pool)
+        assertTrue(types.any { it.answer == listOf("C13") })
+        assertEquals(1, types.count { it.notes == "Cmaj: Grundstellung" })
+        StarterKits.STANDARD.forEach { assertNotNull(vm.deck(it), it) }
+        // Only once: deleting the deck afterwards sticks.
+        vm.deleteDeck(StarterKits.PROGRESSIONS_ID)
+        assertNull(vm(store).deck(StarterKits.PROGRESSIONS_ID))
     }
 
     @Test

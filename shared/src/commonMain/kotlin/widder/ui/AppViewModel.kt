@@ -136,7 +136,11 @@ class AppViewModel(
     val settings: Settings get() = collection.settings
     val notation: Notation get() = Notation(german = settings.germanNotation, minorAsMin = settings.minorAsMin)
 
+    /** Standard kits added or grown by [installStandardKits]; their folders are seen to with the others. */
+    private var kitsToLink = listOf<String>()
+
     init {
+        installStandardKits()
         loadRewardImage()
         if (live) {
             refreshFolders()
@@ -204,8 +208,25 @@ class AppViewModel(
 
     fun cardsIn(deckId: String): List<Card> = collection.cards.filter { it.deckId == deckId }
 
-    private fun studyCards(deck: Deck): List<Card> =
-        if (deck.kind == DeckKind.CHORDS) collection.cards.filter { it.deckId == deck.id && it.answer.isNotEmpty() && it.frontAudio != null } else collection.cards
+    /** The cards of [deck] that are learned: with the deck's tags, and for training only what can be trained. */
+    private fun studyCards(deck: Deck): List<Card> = collection.cards.filter { card ->
+        card.deckId == deck.id &&
+            (deck.studyTags.isEmpty() || card.tags.any { it in deck.studyTags }) &&
+            (deck.kind != DeckKind.CHORDS || (card.answer.isNotEmpty() && card.frontAudio != null))
+    }
+
+    /** Learn only the cards with one of [tags]; empty = all. */
+    fun setStudyTags(deckId: String, tags: List<String>) {
+        val deck = deck(deckId) ?: return
+        val all = tagsIn(deckId)
+        updateDeck(deck.copy(studyTags = all.filter { it in tags }))
+    }
+
+    /** Every tag in the deck, the standard levels in their order first. */
+    fun tagsIn(deckId: String): List<String> {
+        val tags = cardsIn(deckId).flatMap { it.tags }.distinct()
+        return StarterKits.LEVELS.filter { it in tags } + tags.filter { it !in StarterKits.LEVELS }.sorted()
+    }
 
     fun counts(deck: Deck): DeckCounts = Queue(deck, studyCards(deck), progress).counts
 
@@ -232,6 +253,39 @@ class AppViewModel(
         saveCollection(collection.copy(decks = collection.decks + deck, cards = collection.cards + cards))
         toast("„${deck.name}“ angelegt")
         scope.launch { linkKitFolder(deck.id) }
+    }
+
+    /**
+     * Gives the collection the standard kits of this version, once: missing decks are added
+     * (also ones deleted before, since the kits changed), decks already there get the new cards,
+     * and the cards they had (same answer and notes) keep their progress and take the new tags.
+     */
+    private fun installStandardKits() {
+        if (settings.standardKits >= StarterKits.STANDARD_VERSION) return
+        var c = collection
+        val touched = mutableListOf<String>()
+        for (id in StarterKits.STANDARD) {
+            val (deck, cards) = StarterKits.kit(id)?.build(store) ?: continue
+            if (c.decks.none { it.id == id }) {
+                c = c.copy(decks = c.decks + deck, cards = c.cards + cards)
+                touched += id
+                continue
+            }
+            val built = cards.associateBy { it.answer to it.notes }
+            val have = c.cards.filter { it.deckId == id }.map { it.answer to it.notes }.toSet()
+            val added = cards.filter { (it.answer to it.notes) !in have }
+            cards.filter { it !in added }.forEach { deleteClipFiles(it) }
+            c = c.copy(
+                decks = c.decks.map { if (it.id == id) it.copy(pool = deck.pool) else it },
+                cards = c.cards.map { card ->
+                    val tags = built[card.answer to card.notes]?.tags
+                    if (card.deckId == id && tags != null) card.copy(tags = (card.tags + tags).distinct()) else card
+                } + added,
+            )
+            if (added.isNotEmpty()) touched += id
+        }
+        kitsToLink = touched
+        saveCollection(c.copy(settings = c.settings.copy(standardKits = StarterKits.STANDARD_VERSION)))
     }
 
     fun deleteDeck(deckId: String) {
@@ -620,7 +674,7 @@ class AppViewModel(
     private fun nextReviewCard(skip: String? = null) {
         val session = review ?: return
         val deck = deck(session.deckId) ?: return
-        val queue = Queue(deck, collection.cards, progress, seed = session.seed)
+        val queue = Queue(deck, studyCards(deck), progress, seed = session.seed)
         val card = queue.next(skip)
         session.card = card
         session.showAnswer = false
@@ -710,17 +764,23 @@ class AppViewModel(
     private fun nextExercise(skip: String? = null) {
         val session = training ?: return
         val deck = deck(session.deckId) ?: return
-        val queue = Queue(deck, studyCards(deck), progress, seed = session.seed)
+        val cards = studyCards(deck)
+        val queue = Queue(deck, cards, progress, seed = session.seed)
         val card = queue.next(skip)
         session.card = card
         session.suggested = null
+        // Learning only some tags: the wrong tiles come from what is learned, so "Basis" is not
+        // mixed with C13.
+        val learned = if (deck.studyTags.isEmpty()) null else cards.flatMap { tokensOf(it).map { t -> t.key } }.toSet()
+        val pool = deck.pool.map { t -> widder.music.Token.of(t, settings.germanNotation) }
+            .let { all -> learned?.let { keys -> all.filter { it.key in keys }.takeIf { it.size > 1 } } ?: all }
         session.nextDue = if (card == null) queue.nextLearningDue() else null
         session.round = card?.let {
             ChordRound(
                 tokensOf(it),
                 deck.distractors,
                 notation,
-                candidates = deck.pool.map { t -> widder.music.Token.of(t, settings.germanNotation) },
+                candidates = pool,
             )
         }
         session.startedAt = currentTimeMillis()
@@ -961,6 +1021,10 @@ class AppViewModel(
 
     /** Starter kits go into a folder next to the collection, once, where the platform has one. */
     private suspend fun linkKitFolders() {
+        // New standard kits get their folder; ones already linked write their new cards into it.
+        val standard = kitsToLink
+        kitsToLink = emptyList()
+        for (id in standard) deck(id)?.folder?.let { linkFolderNow(id, it, quiet = true) } ?: linkKitFolder(id)
         if (settings.kitFolderLinked) return
         for (id in listOf(StarterKits.A_CHORDS_ID, StarterKits.A_CARDS_ID)) linkKitFolder(id)
         if (collection.decks.any { it.id == StarterKits.A_CHORDS_ID || it.id == StarterKits.A_CARDS_ID }) {

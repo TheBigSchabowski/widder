@@ -35,6 +35,18 @@ enum class Quality(
     DOM9(listOf(0, 2, 4, 7, 10), "9", listOf("9")),
     MAJ9(listOf(0, 2, 4, 7, 11), "maj9", listOf("maj9", "Δ9"), listOf("M9")),
     MINOR9(listOf(0, 2, 3, 7, 10), "m9", listOf("m9", "min9", "-9"), listOf("m9")),
+    // Steps of 12 and more lie above the octave: they sound up there and never go into the bass.
+    ADD4(listOf(0, 4, 5, 7), "add4", listOf("add4", "add11", "(add4)", "maj(add4)", "majadd4")),
+    MINOR_ADD4(listOf(0, 3, 5, 7), "madd4", listOf("madd4", "minadd4", "m(add4)", "min(add4)", "madd11", "m(add11)")),
+    SIX_NINE(listOf(0, 4, 7, 9, 14), "6add9", listOf("6add9", "6(add9)", "69", "6-9")),
+    SEVEN_FLAT9(listOf(0, 4, 7, 10, 13), "7b9", listOf("7b9", "7(b9)", "7-9")),
+    SEVEN_SHARP9(listOf(0, 4, 7, 10, 15), "7#9", listOf("7#9", "7(#9)", "7+9")),
+    /** Third left out, as usually played: C G B♭ D F. */
+    DOM11(listOf(0, 7, 10, 14, 17), "11", listOf("11")),
+    MINOR11(listOf(0, 3, 7, 10, 14, 17), "m11", listOf("m11", "min11", "-11"), listOf("m11")),
+    /** The eleventh left out, as usually played: C E G B♭ D A. */
+    DOM13(listOf(0, 4, 7, 10, 14, 21), "13", listOf("13")),
+    MAJ13(listOf(0, 4, 7, 11, 14, 21), "maj13", listOf("maj13", "Δ13"), listOf("M13")),
     ;
 
     val isMinor: Boolean get() = 3 in intervals && 4 !in intervals
@@ -72,10 +84,13 @@ data class Chord(val root: Int, val quality: Quality, val bass: Int? = null) {
 
     override fun toString(): String = name()
 
-    /** Root position, then the third, fifth and (if there is one) seventh in the bass; a ninth never goes down there. */
+    /**
+     * Root position, then the third, fifth and (if there is one) seventh or sixth in the bass; a
+     * ninth, an added fourth and anything above the octave never go down there.
+     */
     fun inversions(): List<Chord> {
         val hasThird = 3 in quality.intervals || 4 in quality.intervals
-        return quality.intervals.filter { it != 12 && !(it == 2 && hasThird) }
+        return quality.intervals.filter { it < 12 && !((it == 2 || it == 5) && hasThird) }
             .map { if (it == 0) copy(bass = null) else copy(bass = (root + it) % 12) }
     }
 

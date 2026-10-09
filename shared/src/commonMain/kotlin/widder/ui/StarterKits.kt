@@ -14,6 +14,7 @@ import widder.music.Key
 import widder.music.Midi
 import widder.music.MidiAnalysis
 import widder.music.Notation
+import widder.music.Quality
 import kotlin.random.Random
 
 /** Ready-made chord trainings, rendered by the built-in synth. */
@@ -24,6 +25,13 @@ object StarterKits {
     const val INTERVALS_APART_ID = "startkit-intervalle-nacheinander"
     const val CHORD_TYPES_ID = "startkit-akkordtypen"
     const val DEGREES_ID = "startkit-stufen-c"
+    const val PROGRESSIONS_ID = "startkit-akkordfolgen"
+
+    /** The levels the standard kits tag their cards with, from easy to hard. */
+    const val BASIC = "Basis"
+    const val MEDIUM = "Mittel"
+    const val ADVANCED = "Fortgeschritten"
+    val LEVELS = listOf(BASIC, MEDIUM, ADVANCED)
 
     /** Where the A kits' files go on the Mac, next to the collection. */
     const val FOLDER = "Startkit A-Akkorde"
@@ -90,7 +98,15 @@ object StarterKits {
             ) { intervals(it, together = false) },
             Kit(
                 CHORD_TYPES_ID, DeckKind.CHORDS, "Startkit: Akkordtypen",
-                CHORD_TYPES.joinToString(" · ") + " – in allen Umkehrungen", "Startkit Akkordtypen", ::chordTypes,
+                "Alle ${CHORD_TYPES.size} Akkordtypen auf C, von Dur, Moll, Oktave und Powerchord bis dim7 und C13 – " +
+                    "in allen Umkehrungen, getaggt mit ${LEVELS.joinToString(" · ")}",
+                "Startkit Akkordtypen", ::chordTypes,
+            ),
+            Kit(
+                PROGRESSIONS_ID, DeckKind.CHORDS, "Startkit: Akkordfolgen",
+                "Die häufigsten Schritte von einem Akkord zum nächsten in C-Dur und a-Moll – Tonika, Subdominante, " +
+                    "Dominante und ihre Verwandten, nach der Tonika als Bezug, getaggt mit ${LEVELS.joinToString(" · ")}",
+                "Startkit Akkordfolgen", ::progressions,
             ),
         ) + SCALES.map { scale ->
             Kit(
@@ -104,11 +120,20 @@ object StarterKits {
             val question = when (kit.id) {
                 INTERVALS_TOGETHER_ID, INTERVALS_APART_ID -> "Welches Intervall ist das?"
                 CHORD_TYPES_ID -> "Welcher Akkordtyp ist das?"
+                PROGRESSIONS_ID -> "Welche zwei Stufen folgen auf die Tonika?"
                 else -> "Welche Stufen hörst du?"
             }
             Kit(kit.id + CARDS_SUFFIX, DeckKind.CARDS, kit.title + " als Karteikarten", kit.summary, kit.folder) { asCards(it, kit, question) }
         }
     }
+
+    /**
+     * What every collection gets without asking: all chord types and the common progressions,
+     * each as training and as flash cards. Raising [STANDARD_VERSION] hands a new version of them
+     * to existing collections once (see AppViewModel.installStandardKits).
+     */
+    const val STANDARD_VERSION = 1
+    val STANDARD = listOf(CHORD_TYPES_ID, CHORD_TYPES_ID + CARDS_SUFFIX, PROGRESSIONS_ID, PROGRESSIONS_ID + CARDS_SUFFIX)
 
     /** Appended to a training's id for its flash-card twin. */
     const val CARDS_SUFFIX = "-karten"
@@ -215,17 +240,30 @@ object StarterKits {
         return deck to cards
     }
 
-    /** The colours of a chord on C: major, minor, their sevenths and add9. */
-    val CHORD_TYPES = listOf("Cmaj", "Cmaj7", "Cmin", "Cmin7", "Cmaj(add9)", "Cmin(add9)")
+    /** Every chord type on C by level: two-note sounds and the main triads and sevenths first, jazz colours last. */
+    val CHORD_TYPE_LEVELS: List<Pair<String, List<String>>> = listOf(
+        BASIC to listOf("Cmaj", "Cmin", "C5", "C-Oktave", "C7", "Cmaj7", "Cmin7"),
+        MEDIUM to listOf("Csus2", "Csus4", "Cdim", "Caug", "C6", "Cmin6", "Cmaj(add9)", "Cmin(add9)", "Cadd4", "Cmin(add4)", "C7sus4"),
+        ADVANCED to listOf(
+            "Cdim7", "Cmin7b5", "CminMaj7", "C7#5", "C9", "Cmaj9", "Cmin9", "C6add9", "C7b9", "C7#9", "C11", "Cmin11", "C13", "Cmaj13",
+        ),
+    )
+
+    val CHORD_TYPES: List<String> = CHORD_TYPE_LEVELS.flatMap { it.second }
 
     /** "F/A: 1. Umkehrung (Terz im Bass)" for what the audio plays; the answer stays "F". */
     private fun describe(played: Chord, written: String): String {
         val position = played.bass?.let { bass ->
-            when (((bass - played.root) % 12 + 12) % 12) {
-                3, 4 -> "1. Umkehrung (Terz im Bass)"
-                6, 7, 8 -> "2. Umkehrung (Quinte im Bass)"
-                else -> "3. Umkehrung (Septime im Bass)"
+            val n = played.copy(bass = null).inversions().indexOfFirst { it.bass == bass }
+            val tone = when (((bass - played.root) % 12 + 12) % 12) {
+                2 -> "Sekunde"
+                3, 4 -> "Terz"
+                5 -> "Quarte"
+                6, 7, 8 -> "Quinte"
+                9 -> if (played.quality == Quality.DIM7) "Septime" else "Sexte"
+                else -> "Septime"
             }
+            "$n. Umkehrung ($tone im Bass)"
         } ?: "Grundstellung"
         val name = if (played.bass == null) written else written + "/" + Chord.noteName(played.bass, Notation(german = true))
         return "$name: $position"
@@ -233,22 +271,101 @@ object StarterKits {
 
     fun chordTypes(store: Store): Pair<Deck, List<Card>> {
         val now = currentTimeMillis()
-        // All six types lie in the pool every time; numerals would only repeat the names.
+        // The wrong tiles come from the types themselves; numerals would only repeat the names.
         val deck = Deck(
             CHORD_TYPES_ID, "Startkit: Akkordtypen", DeckKind.CHORDS,
             distractors = 5, pool = CHORD_TYPES, numerals = NumeralMode.OFF, created = now,
         )
         // Every type in root position and each inversion; which one it is stays in the notes.
-        val voicings = CHORD_TYPES.flatMap { name -> requireNotNull(Chord.parse(name)) { name }.inversions().map { name to it } }
-        val cards = voicings.mapIndexed { i, (name, played) ->
-            val bytes = Midi.write(MidiAnalysis.progression(listOf(played), secondsPerChord = 1.8), bpm = 100)
+        val voicings = CHORD_TYPE_LEVELS.flatMap { (level, names) ->
+            names.flatMap { name ->
+                val chord = requireNotNull(Chord.parse(name)) { name }
+                chord.inversions().mapIndexed { n, played -> Voicing(name, chord.quality, n, played, level) }
+            }
+        }
+        val cards = voicings.mapIndexed { i, v ->
+            // Root C plays without an extra bass note, so C5 and the octave stay two-note sounds.
+            val bytes = Midi.write(MidiAnalysis.progression(listOf(v.played), secondsPerChord = 1.8, rootBass = v.played.quality.intervals.size > 2), bpm = 100)
             Card(
-                "$CHORD_TYPES_ID-$i",
+                // Named, not counted, so a later version can add types without moving the others.
+                "$CHORD_TYPES_ID-${v.quality.name.lowercase()}-${v.inversion}",
                 deck.id,
-                front = name,
+                front = v.name,
+                frontAudio = Clip(store.addMedia("${v.name}.mid", bytes), "${v.name}.mid"),
+                answer = listOf(v.name),
+                notes = describe(v.played, v.name),
+                tags = listOf(v.level),
+                created = now + i,
+                modified = now,
+            )
+        }
+        return deck to cards
+    }
+
+    private class Voicing(val name: String, val quality: Quality, val inversion: Int, val played: Chord, val level: String)
+
+    /** A step from one chord to the next in [key], with the functions it moves between. */
+    class Step(val key: String, val chords: List<String>, val functions: String, val level: String)
+
+    // H rather than B, and no B flat at all: "Bb" would read as A in German notation.
+    val STEPS = listOf(
+        Step("C", listOf("C", "F"), "Tonika → Subdominante", BASIC),
+        Step("C", listOf("C", "G"), "Tonika → Dominante", BASIC),
+        Step("C", listOf("F", "C"), "Subdominante → Tonika (plagaler Schluss)", BASIC),
+        Step("C", listOf("G", "C"), "Dominante → Tonika (authentischer Schluss)", BASIC),
+        Step("C", listOf("F", "G"), "Subdominante → Dominante", BASIC),
+        Step("C", listOf("G", "F"), "Dominante → Subdominante", MEDIUM),
+        Step("C", listOf("G7", "C"), "Dominantseptakkord → Tonika", MEDIUM),
+        Step("C", listOf("C", "Am"), "Tonika → Tonikaparallele", MEDIUM),
+        Step("C", listOf("Am", "F"), "Tonikaparallele → Subdominante", MEDIUM),
+        Step("C", listOf("Dm", "G"), "Subdominantparallele → Dominante (II – V)", MEDIUM),
+        Step("C", listOf("G", "Am"), "Dominante → Tonikaparallele (Trugschluss)", MEDIUM),
+        Step("C", listOf("C", "Em"), "Tonika → Dominantparallele", ADVANCED),
+        Step("C", listOf("F", "Fm"), "Subdominante → Moll-Subdominante", ADVANCED),
+        Step("C", listOf("Fm", "C"), "Moll-Subdominante → Tonika", ADVANCED),
+        Step("C", listOf("D", "G"), "Doppeldominante → Dominante", ADVANCED),
+        Step("C", listOf("E", "Am"), "Zwischendominante → Tonikaparallele", ADVANCED),
+        Step("a-Moll", listOf("Am", "Dm"), "Moll-Tonika → Moll-Subdominante", BASIC),
+        Step("a-Moll", listOf("Am", "E"), "Moll-Tonika → Dur-Dominante", BASIC),
+        Step("a-Moll", listOf("E", "Am"), "Dur-Dominante → Moll-Tonika", BASIC),
+        Step("a-Moll", listOf("Dm", "Am"), "Moll-Subdominante → Moll-Tonika", MEDIUM),
+        Step("a-Moll", listOf("Am", "C"), "Moll-Tonika → Tonikaparallele (III)", MEDIUM),
+        Step("a-Moll", listOf("Am", "F"), "Moll-Tonika → Tonikagegenklang (VI)", MEDIUM),
+        Step("a-Moll", listOf("Am", "G"), "Moll-Tonika → VII. Stufe", MEDIUM),
+        Step("a-Moll", listOf("Hdim", "E"), "Verminderte II. Stufe → Dominante", ADVANCED),
+        Step("a-Moll", listOf("F", "E"), "VI. Stufe → Dominante", ADVANCED),
+        Step("a-Moll", listOf("Dm", "E"), "Moll-Subdominante → Dur-Dominante", ADVANCED),
+    )
+
+    /**
+     * Two chords after the tonic of their key: without it, V – I in C sounds just like I – IV in
+     * G. The tonic is only the reference; the answer is the two chords.
+     */
+    fun progressions(store: Store): Pair<Deck, List<Card>> {
+        val now = currentTimeMillis()
+        // Written as I, IV ... only; each card brings its own key.
+        val deck = Deck(
+            PROGRESSIONS_ID, "Startkit: Akkordfolgen", DeckKind.CHORDS,
+            distractors = 3, pool = STEPS.flatMap { it.chords }.distinct(), numerals = NumeralMode.ONLY, created = now,
+        )
+        val cards = STEPS.mapIndexed { i, step ->
+            val key = Key.parse(step.key)!!
+            val chords = step.chords.map { requireNotNull(Chord.parse(it)) { it } }
+            val tonic = Chord(key.tonic, if (key.minor) Quality.MINOR else Quality.MAJOR)
+            val reference = MidiAnalysis.voice(tonic, 0.0, 1.2, velocity = 70)
+            val step2 = MidiAnalysis.progression(chords, secondsPerChord = 1.5).map { it.copy(start = it.start + 2.0, end = it.end + 2.0) }
+            val bytes = Midi.write(reference + step2, bpm = 100)
+            val name = step.chords.joinToString(" ")
+            val keyName = key.name(Notation(german = true))
+            Card(
+                "$PROGRESSIONS_ID-$i",
+                deck.id,
+                front = chords.joinToString(" – ") { Harmony.numeral(it, key) },
                 frontAudio = Clip(store.addMedia("$name.mid", bytes), "$name.mid"),
-                answer = listOf(name),
-                notes = describe(played, name),
+                answer = step.chords,
+                key = step.key,
+                notes = "${step.functions}\nVorweg klingt die Tonika von $keyName als Bezug.",
+                tags = listOf(step.level),
                 created = now + i,
                 modified = now,
             )
