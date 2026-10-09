@@ -298,6 +298,11 @@ object MidiAnalysis {
         val hasThird = 3 in chord.quality.intervals || 4 in chord.quality.intervals
         val upper = chord.quality.intervals.map { base + if (it == 2 && hasThird) 14 else it }.sorted()
         val bassPc = chord.bass ?: chord.root.takeIf { rootBass }
+        // An inverted two-note sound stays two notes, its bass just below: A/C# is C# A, a minor sixth.
+        if (chord.quality.intervals.size == 2 && chord.bass != null) {
+            val low = upper.first() - 12 + ((chord.bass - upper.first()) % 12 + 12) % 12
+            return (listOf(low) + upper.filter { (it - chord.bass) % 12 != 0 }).map { Note(it, start, start + length, velocity) }
+        }
         val bass = bassPc?.let { 36 + it % 12 }
         return (listOfNotNull(bass) + upper).distinct().map { Note(it, start, start + length, velocity) }
     }

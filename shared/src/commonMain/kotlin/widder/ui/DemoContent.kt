@@ -61,11 +61,7 @@ object DemoContent {
                 modified = now,
             )
         }
-        val (kitDeck, kitCards) = StarterKits.aChords(store)
-        val (kitCardDeck, kitCardCards) = StarterKits.aChordCards(store)
-        return Collection(
-            decks = listOf(cardsDeck, kitCardDeck, chordDeck, kitDeck),
-            cards = cards + kitCardCards + kitCards,
-        )
+        // The starter kits come on top (AppViewModel.installStandardKits).
+        return Collection(decks = listOf(cardsDeck, chordDeck), cards = cards)
     }
 }

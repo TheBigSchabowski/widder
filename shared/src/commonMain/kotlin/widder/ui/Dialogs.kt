@@ -75,7 +75,7 @@ private fun NewDeckDialog(vm: AppViewModel, kind: DeckKind) {
     var name by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { vm.deckDialog = null },
-        title = { Text(if (kind == DeckKind.CARDS) "Neuer Kartenstapel" else "Neues Akkord-Training") },
+        title = { Text(if (kind == DeckKind.CARDS) "Neuer Flash-Cards-Stapel" else "Neuer Multiple-Choice-Stapel") },
         text = {
             OutlinedTextField(name, { name = it }, singleLine = true, placeholder = { Text("Name") })
         },
@@ -226,7 +226,7 @@ private fun ImportTargetDialog(vm: AppViewModel, count: Int) {
                 for (kind in DeckKind.entries) {
                     item {
                         Text(
-                            if (kind == DeckKind.CARDS) "Als Karteikarten" else "Als Akkord-Training",
+                            "Als " + kindName(kind),
                             Modifier.padding(top = 10.dp, bottom = 4.dp),
                             fontWeight = FontWeight.SemiBold,
                             color = kindColor(kind),

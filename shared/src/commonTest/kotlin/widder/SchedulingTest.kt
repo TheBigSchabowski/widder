@@ -134,7 +134,7 @@ class SchedulingTest {
 
     @Test
     fun distractorsComeFromTheDeckPool() {
-        val kit = widder.ui.StarterKits.A_CHORDS.map { widder.music.Token.of(it) }
+        val kit = widder.ui.StarterKits.CHORDS.map { widder.music.Token.of(it) }
         val round = ChordRound(listOf(widder.music.Token.of("A7")), distractors = 3, random = Random(5), candidates = kit)
         assertEquals(4, round.pool.size)
         assertTrue(round.pool.all { t -> kit.any { it.key == t.token.key } })

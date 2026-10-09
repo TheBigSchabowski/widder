@@ -111,8 +111,9 @@ private fun Header(vm: AppViewModel) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Widder", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = color)
-            Text("Karteikarten, Gehör und Harmonielehre", style = MaterialTheme.typography.bodyMedium, color = color.copy(alpha = 0.75f))
+            Text("Flash Cards, Gehör und Harmonielehre", style = MaterialTheme.typography.bodyMedium, color = color.copy(alpha = 0.75f))
         }
+        SmallButton("?", { vm.open(Screen.Help) }, color = color)
         SmallButton("Einstellungen", { vm.open(Screen.Settings) }, color = color)
     }
     Spacer(Modifier.height(14.dp))
@@ -150,7 +151,7 @@ private fun Paths(vm: AppViewModel) {
             PathCard(
                 m,
                 color = Palette.cards,
-                title = "Karteikarten",
+                title = kindName(DeckKind.CARDS),
                 text = "Stapel wie in Anki, Audio aufnehmen, schneiden und mit Hall versehen, MIDI abspielen.",
                 due = vm.dueTotal(DeckKind.CARDS),
                 decks = vm.decks(DeckKind.CARDS).size,
@@ -161,7 +162,7 @@ private fun Paths(vm: AppViewModel) {
             PathCard(
                 m,
                 color = Palette.chords,
-                title = "Akkord-Training",
+                title = kindName(DeckKind.CHORDS),
                 text = "Anhören und die Akkorde per Drag & Drop in die Reihenfolge ziehen, in der sie klingen.",
                 due = vm.dueTotal(DeckKind.CHORDS),
                 decks = vm.decks(DeckKind.CHORDS).size,

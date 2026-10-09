@@ -47,9 +47,15 @@ enum class Quality(
     /** The eleventh left out, as usually played: C E G B♭ D A. */
     DOM13(listOf(0, 4, 7, 10, 14, 21), "13", listOf("13")),
     MAJ13(listOf(0, 4, 7, 11, 14, 21), "maj13", listOf("maj13", "Δ13"), listOf("M13")),
+    /** Root and major third: the two-note sound of a major chord. Like the octave, only named, never guessed. */
+    MAJOR_THIRD(listOf(0, 4), "(no5)", listOf("(no5)", "no5", "maj(no5)", "majno5", "-durterz", "durterz")),
+    MINOR_THIRD(listOf(0, 3), "m(no5)", listOf("m(no5)", "mno5", "min(no5)", "minno5", "-mollterz", "mollterz")),
     ;
 
     val isMinor: Boolean get() = 3 in intervals && 4 !in intervals
+
+    /** Two notes that would otherwise be read as an interval or a chord without its fifth. */
+    val namedOnly: Boolean get() = this == OCTAVE || this == MAJOR_THIRD || this == MINOR_THIRD
 
     companion object {
         fun parse(suffix: String): Quality? {
@@ -176,7 +182,7 @@ data class Chord(val root: Int, val quality: Quality, val bass: Int? = null) {
             var bestScore = Double.NEGATIVE_INFINITY
             for (root in pitchClasses) {
                 for ((index, quality) in Quality.entries.withIndex()) {
-                    if (quality == Quality.POWER && pitchClasses.size > 2) continue
+                    if (quality.namedOnly || (quality == Quality.POWER && pitchClasses.size > 2)) continue
                     val tones = quality.intervals.map { (root + it) % 12 }.toSet()
                     val fifth = (root + 7) % 12
                     val omittedFifth = fifth in tones && fifth !in pitchClasses

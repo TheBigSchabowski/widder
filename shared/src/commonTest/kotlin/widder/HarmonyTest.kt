@@ -56,8 +56,8 @@ class HarmonyTest {
 
     @Test
     fun wholeStarterKitHasNumerals() {
-        val labels = StarterKits.A_CHORDS.map { n(it, "A") }
-        assertEquals(listOf("iadd9", "Iadd9", "I7", "Imaj7", "i/3", "i/5", "I", "I/3", "I/5", "I-Okt", "I5"), labels)
+        val labels = (StarterKits.CHORDS + listOf("Amin/C", "Amaj(no5)/C#", "A5/E")).map { n(it, "A") }
+        assertEquals(listOf("I", "i", "Imaj7", "I7", "i7", "Iadd9", "iadd9", "i°", "I5", "I(no5)", "i(no5)", "I-Okt", "i/3", "I(no5)/3", "I5/5"), labels)
     }
 
     @Test

@@ -86,8 +86,13 @@ fun EditorScreen(vm: AppViewModel) {
                     { e.notes = it },
                     Modifier.fillMaxWidth(),
                     minLines = 2,
-                    placeholder = { Text(if (cards) "z. B. welche Umkehrung erklingt" else "z. B. welche Umkehrung erklingt – beim Training versteckt") },
+                    placeholder = { Text(if (cards) "z. B. eine Eselsbrücke" else "z. B. woher das Audio stammt – beim Üben versteckt") },
                 )
+                // The starter kits note here which inversion sounds; the answer is only the chord.
+                if (e.original?.voicing?.isNotBlank() == true) {
+                    SectionTitle("Was das Audio spielt (nur hier sichtbar)")
+                    OutlinedTextField(e.voicing, { e.voicing = it }, Modifier.fillMaxWidth(), minLines = 1)
+                }
                 val original = e.original
                 if (original != null) {
                     Spacer(Modifier.height(24.dp))
