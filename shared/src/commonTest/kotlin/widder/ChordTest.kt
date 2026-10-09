@@ -37,13 +37,20 @@ class ChordTest {
 
     @Test
     fun starterKitNamesAreChords() {
-        val kit = widder.ui.StarterKits.A_CHORDS.map { chord(it) }
+        val kit = widder.ui.StarterKits.CHORDS.map { chord(it) }
         // All different, so every tile in the kit is its own answer.
         assertEquals(kit.size, kit.map { it.key }.toSet().size)
         assertEquals(Chord(9, Quality.MINOR_ADD9), chord("Am(add9)"))
         assertEquals(Chord(9, Quality.ADD9), chord("Amaj(add9)"))
         assertEquals(Chord(9, Quality.POWER), chord("Apowerchord"))
         assertEquals(Chord(9, Quality.OCTAVE), chord("A-Oktave"))
+        assertEquals(Chord(9, Quality.MAJOR_THIRD), chord("Amaj(no5)"))
+        assertEquals(Chord(9, Quality.MINOR_THIRD), chord("Amin(no5)"))
+        assertEquals(Chord(9, Quality.MINOR_THIRD), chord("A-Mollterz"))
+        assertEquals("Am(no5)", chord("Amin(no5)").name())
+        assertEquals("Amin(no5)", chord("Am(no5)").name(widder.music.Notation(minorAsMin = true)))
+        // Two notes from a MIDI file stay what they were; the thirds are only named, never guessed.
+        assertEquals(Chord(9, Quality.MAJOR), Chord.identify(setOf(9, 1), bass = 9))
         assertEquals(Chord(9, Quality.MINOR, bass = 0), chord("Am/C"))
         assertEquals(Chord(9, Quality.MAJOR, bass = 4), chord("A/E"))
         assertEquals(chord("A").key, chord("A/A").key)

@@ -1,5 +1,6 @@
 package widder.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,15 +16,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,17 +49,39 @@ import widder.music.Token
 
 fun kindColor(kind: DeckKind): Color = if (kind == DeckKind.CARDS) Palette.cards else Palette.chords
 
+/** The two paths by their names. */
+fun kindName(kind: DeckKind): String = if (kind == DeckKind.CARDS) "Flash Cards" else "Multiple Choice"
+
 @Composable
 fun DecksScreen(vm: AppViewModel, kind: DeckKind) {
     val color = kindColor(kind)
     val decks = vm.decks(kind)
+    val list = rememberLazyListState()
+    // A deck picked with prefix + number comes into view.
+    LaunchedEffect(vm.selectedDeckId, kind) {
+        val i = decks.indexOfFirst { it.id == vm.selectedDeckId }
+        if (i >= 0) list.animateScrollToItem(i)
+    }
     Column(Modifier.fillMaxSize()) {
-        TopBar(if (kind == DeckKind.CARDS) "Karteikarten" else "Akkord-Training", vm::back) {
-            SmallButton("Importieren", { vm.pickImport(null) }, color = color)
-            SmallButton("+ Stapel", { vm.deckDialog = DeckDialog.New(kind) }, color = color)
+        TopBar(kindName(kind), vm::back) {
+            if (vm.marking) {
+                val all = decks.isNotEmpty() && decks.all { it.id in vm.marked }
+                SmallButton(if (all) "Keine" else "Alle", { vm.markAll(kind, !all) }, color = color)
+                SmallButton(
+                    if (vm.marked.isEmpty()) "Löschen" else "Löschen (${vm.marked.size})",
+                    vm::deleteMarked,
+                    enabled = vm.marked.isNotEmpty(),
+                    color = MaterialTheme.colorScheme.error,
+                )
+                SmallButton("Fertig", vm::stopMarking, color = color)
+            } else {
+                if (decks.isNotEmpty()) SmallButton("Markieren", vm::startMarking, color = color)
+                SmallButton("Importieren", { vm.pickImport(null) }, color = color)
+                SmallButton("+ Stapel", { vm.deckDialog = DeckDialog.New(kind) }, color = color)
+            }
         }
         Centered {
-            LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyColumn(state = list, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (decks.isEmpty()) {
                     item {
                         Panel {
@@ -63,14 +89,14 @@ fun DecksScreen(vm: AppViewModel, kind: DeckKind) {
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 if (kind == DeckKind.CARDS) "Lege einen Stapel an oder importiere Audio- und MIDI-Dateien – aus jeder Datei wird eine Karte."
-                                else "Lege ein Training an und füge Dateien hinzu. Der Dateiname ist die Lösung: „A D G F.wav“ oder „Fmin Gmin.mid“.",
+                                else "Lege einen Stapel an und füge Dateien hinzu. Der Dateiname ist die Lösung: „A D G F.wav“ oder „Fmin Gmin.mid“.",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
                 }
                 items(decks, key = { it.id }) { deck -> DeckRow(vm, deck, color) }
-                items(vm.missingKits(kind), key = { "kit-" + it.id }) { kit ->
+                if (!vm.marking) items(vm.missingKits(kind), key = { "kit-" + it.id }) { kit ->
                     Panel {
                         Text(kit.title, fontWeight = FontWeight.SemiBold)
                         Text(
@@ -103,8 +129,25 @@ private fun DeckRow(vm: AppViewModel, deck: Deck, color: Color) {
     val counts = vm.counts(deck)
     val total = vm.cardsIn(deck.id).size
     val tags = vm.tagsIn(deck.id)
-    Panel {
+    val marked = deck.id in vm.marked
+    val picked = deck.id == vm.selectedDeckId
+    // With a keyboard: the number for prefix + digit.
+    val number = vm.deckNumber(deck.id)?.takeIf { vm.platform.keyboard && vm.settings.prefix != null }
+    Panel(
+        when {
+            marked -> Modifier.border(2.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(18.dp))
+            picked -> Modifier.border(2.dp, color, RoundedCornerShape(18.dp))
+            else -> Modifier
+        }.then(if (vm.marking) Modifier.clip(RoundedCornerShape(18.dp)).clickable { vm.toggleMark(deck.id) } else Modifier),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            if (vm.marking) {
+                Checkbox(marked, { vm.toggleMark(deck.id) })
+                Spacer(Modifier.width(4.dp))
+            }
+            if (number != null) {
+                KeyHint("$number", Modifier.padding(end = 10.dp))
+            }
             Column(Modifier.weight(1f)) {
                 Text(deck.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(4.dp))
@@ -136,8 +179,9 @@ private fun DeckRow(vm: AppViewModel, deck: Deck, color: Color) {
                     )
                 }
             }
-            IconButton(Glyph.MORE, "Stapel-Optionen", { vm.deckDialog = DeckDialog.Options(deck.id) })
+            if (!vm.marking) IconButton(Glyph.MORE, "Stapel-Optionen", { vm.deckDialog = DeckDialog.Options(deck.id) })
         }
+        if (vm.marking) return@Panel
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(

@@ -90,8 +90,10 @@ data class Card(
      * ("Son Clave 3-2"). The chords still count in the training.
      */
     val label: String? = null,
-    /** Notes on the back of a flash card and in the editor, e.g. which inversion the audio plays. */
+    /** Notes on the back of a flash card and in the editor. */
     val notes: String = "",
+    /** What the audio really plays, e.g. "Amin/C: 1. Umkehrung"; only the editor shows it, never the learning. */
+    val voicing: String = "",
     /** The file in the deck's folder this card comes from; the card follows that file. */
     val source: String? = null,
     /** The file's stamp when it was last read in; a different one means it was replaced. */
@@ -123,8 +125,6 @@ data class Settings(
     val autoplay: Boolean = true,
     /** How chords are labelled: name only, roman numeral with the name "I (A)", or numeral only. */
     val numerals: NumeralMode = NumeralMode.WITH_NAME,
-    /** The starter kits were given their folder once; unlinking them afterwards sticks. */
-    val kitFolderLinked: Boolean = false,
     /** Which version of the standard kits this collection has received (see StarterKits.STANDARD_VERSION). */
     val standardKits: Int = 0,
     val reward: RewardSettings = RewardSettings(),

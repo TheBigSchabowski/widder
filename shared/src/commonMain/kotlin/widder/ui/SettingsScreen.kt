@@ -31,7 +31,9 @@ fun SettingsScreen(vm: AppViewModel) {
     val s = vm.settings
     val r = s.reward
     Column(Modifier.fillMaxSize()) {
-        TopBar("Einstellungen", vm::back)
+        TopBar("Einstellungen", vm::back) {
+            SmallButton("Modi & Tasten", { vm.open(Screen.Help) })
+        }
         Centered {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
                 SectionTitle("Bildbelohnung")
@@ -123,9 +125,9 @@ fun SettingsScreen(vm: AppViewModel) {
                 if (vm.platform.canDropFiles) {
                     SectionTitle("Tastatur beim Lernen")
                     Panel {
-                        Text("Abfragen: Leertaste = Antwort zeigen / Gut, 1–4 = Nochmal/Schwer/Gut/Leicht, R = nochmal hören, E = bearbeiten, ⌘Z / Strg+Z = rückgängig")
+                        Text("Flash Cards: Leertaste = Antwort zeigen / Gut, 1–4 = Nochmal/Schwer/Gut/Leicht, R = nochmal hören, E = bearbeiten, ⌘Z / Strg+Z = rückgängig")
                         Spacer(Modifier.height(6.dp))
-                        Text("Akkord-Training: Leertaste = anhören, Enter = prüfen / weiter, ⌫ = letzten Akkord zurücklegen, E = Audio bearbeiten")
+                        Text("Multiple Choice: Leertaste = anhören, Enter = prüfen / weiter, ⌫ = letzten Akkord zurücklegen, E = Audio bearbeiten")
                         Spacer(Modifier.height(6.dp))
                         Text("Überall: Esc = zurück")
                     }

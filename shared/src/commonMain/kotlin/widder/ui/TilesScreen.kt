@@ -48,6 +48,7 @@ import widder.core.ActionKind
 import widder.core.DeckKind
 import widder.core.GestureTile
 import widder.core.Shortcut
+import widder.core.Shortcuts
 import widder.core.TileColor
 import widder.core.TileScope
 
@@ -220,7 +221,7 @@ fun DeckPickDialog(vm: AppViewModel, pick: DeckPick) {
                     if (decks.isEmpty()) continue
                     item {
                         Text(
-                            if (kind == DeckKind.CARDS) "Karteikarten" else "Akkord-Training",
+                            kindName(kind),
                             Modifier.padding(top = 10.dp, bottom = 4.dp),
                             fontWeight = FontWeight.SemiBold,
                             color = kindColor(kind),
@@ -252,7 +253,7 @@ fun ShortcutDialog(vm: AppViewModel, edit: ShortcutEdit) {
     var action by remember(edit) { mutableStateOf(old?.action ?: Action(ActionKind.STUDY)) }
     val k = key.singleOrNull()
     val problem = when {
-        k == null -> "Eine Taste: Buchstabe oder Ziffer"
+        k == null -> "Eine Taste: Buchstabe oder ? – die Ziffern wählen die Stapel"
         else -> vm.shortcuts.firstOrNull { it.key == k && it.key != edit.key }?.let { "Ersetzt: ${vm.describe(it.action)}" }
     }
     AlertDialog(
@@ -265,7 +266,7 @@ fun ShortcutDialog(vm: AppViewModel, edit: ShortcutEdit) {
                     Text("  dann  ", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(
                         key,
-                        { key = it.filter(Char::isLetterOrDigit).takeLast(1).uppercase() },
+                        { key = it.filter(Shortcuts::bindable).takeLast(1).uppercase() },
                         Modifier.widthIn(max = 90.dp),
                         singleLine = true,
                     )
@@ -318,10 +319,12 @@ fun KeyOverlay(vm: AppViewModel) {
                 val on = MaterialTheme.colorScheme.inverseOnSurface
                 Text("${vm.keyLabel(prefix)} …", color = on, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(10.dp))
-                if (vm.shortcuts.isNotEmpty()) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        for (s in vm.shortcuts) KeyEntry(s.key, vm.describe(s.action), Palette.cards, on) { vm.runShortcut(s.key) }
-                    }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (s in vm.shortcuts) KeyEntry("${s.key}", vm.describe(s.action), Palette.cards, on) { vm.runShortcut(s.key) }
+                    // The numbers stand in front of the decks in both lists.
+                    val count = vm.numberedDecks().size.coerceAtMost(9)
+                    if (count > 0) KeyEntry(if (count == 1) "1" else "1–$count", "Stapel wählen", Palette.chords, on) { vm.closePrefix() }
+                    if (count > 0) KeyEntry("⇧1–$count", "Stapel markieren", Palette.chords, on) { vm.closePrefix() }
                 }
                 Text("Esc schließt", Modifier.padding(top = 12.dp), style = MaterialTheme.typography.bodySmall, color = on.copy(alpha = 0.6f))
             }
@@ -330,10 +333,10 @@ fun KeyOverlay(vm: AppViewModel) {
 }
 
 @Composable
-private fun KeyEntry(key: Char, label: String, color: Color, on: Color, onClick: () -> Unit) {
+private fun KeyEntry(key: String, label: String, color: Color, on: Color, onClick: () -> Unit) {
     Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(color), contentAlignment = Alignment.Center) {
-            Text("$key", color = Color.White, fontWeight = FontWeight.Bold)
+        Box(Modifier.heightIn(min = 26.dp).widthIn(min = 26.dp).clip(RoundedCornerShape(6.dp)).background(color).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
+            Text(key, color = Color.White, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.width(8.dp))
         Text(label, color = on, maxLines = 1, overflow = TextOverflow.Ellipsis)

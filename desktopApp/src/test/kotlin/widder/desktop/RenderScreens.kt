@@ -9,6 +9,7 @@ import widder.audio.SilentAudio
 import widder.core.DeckKind
 import widder.core.DirectoryStore
 import widder.core.IncomingFile
+import widder.core.PickKind
 import widder.core.Store
 import widder.music.AnswerParser
 import widder.music.Midi
@@ -16,6 +17,7 @@ import widder.music.MidiAnalysis
 import widder.ui.App
 import widder.ui.AppViewModel
 import widder.ui.ClipTarget
+import widder.ui.PlatformHooks
 import widder.ui.Screen
 import java.io.File
 import java.nio.file.Files
@@ -29,10 +31,19 @@ fun main() {
     val out = File("build/screens").apply { mkdirs() }
     val sizes = mapOf("phone" to (393 to 852), "desktop" to (1100 to 820))
 
-    fun render(name: String, setup: (AppViewModel) -> Unit) {
+    // As on the Mac: with a keyboard, so the deck numbers and shortcuts show.
+    val keyboard = object : PlatformHooks {
+        override fun pickFiles(kind: PickKind, onResult: (List<IncomingFile>) -> Unit) = onResult(emptyList())
+        override val keyboard = true
+    }
+
+    fun render(name: String, keys: Boolean = false, setup: (AppViewModel) -> Unit) {
         for ((label, size) in sizes) {
             val dir = Files.createTempDirectory("widder").toFile()
-            val vm = AppViewModel(Store(DirectoryStore(dir)), SilentAudio.system, live = false, main = Dispatchers.Unconfined, work = Dispatchers.Unconfined, random = kotlin.random.Random(1))
+            val vm = AppViewModel(
+                Store(DirectoryStore(dir)), SilentAudio.system, if (keys) keyboard else widder.ui.NoPlatform,
+                live = false, main = Dispatchers.Unconfined, work = Dispatchers.Unconfined, random = kotlin.random.Random(1),
+            )
             setup(vm)
             val (w, h) = size
             ImageComposeScene(w * 2, h * 2, Density(2f)) { App(vm) }.use { scene ->
@@ -103,41 +114,29 @@ fun main() {
     }
     render("import-ziel") { vm -> vm.receiveFiles(listOf(IncomingFile("Cmaj7 Am7.wav", ByteArray(10))), deckId = null) }
     render("einstellungen") { it.open(Screen.Settings) }
-    render("startkit") { vm ->
-        vm.startTraining(widder.ui.StarterKits.A_CHORDS_ID)
-    }
-    render("startkit-folge") { vm ->
-        vm.startTraining(widder.ui.StarterKits.A_CHORDS_ID)
-        // Jump to the Amaj -> A/C# -> A/E sequence.
-        val session = vm.training!!
-        val card = vm.cardsIn(widder.ui.StarterKits.A_CHORDS_ID).first { it.answer == listOf("Amaj", "A/C#", "A/E") }
-        session.card = card
-        session.round = widder.core.ChordRound(vm.tokensOf(card), 2, candidates = vm.tokensOf(card).take(0) + widder.ui.StarterKits.A_CHORDS.map { widder.music.Token.of(it) })
-        session.version++
-        vm.placeTile(session.round!!.pool.first { it.token.text == "Amaj" }, 0)
-    }
+    val cardsKit = widder.ui.StarterKits.CHORDS_ID + widder.ui.StarterKits.CARDS_SUFFIX
     render("editor-beschriftung") { vm ->
-        vm.editCard(vm.cardsIn(widder.ui.StarterKits.A_CARDS_ID).first())
+        vm.editCard(vm.cardsIn(cardsKit).first())
         vm.editor!!.label = "Son Clave 3-2"
     }
     render("karte-beschriftung") { vm ->
-        val card = vm.cardsIn(widder.ui.StarterKits.A_CARDS_ID).first()
+        val card = vm.cardsIn(cardsKit).first()
         vm.editCard(card)
         vm.editor!!.label = "Son Clave 3-2"
         vm.saveEditor()
         vm.home()
-        vm.startReview(widder.ui.StarterKits.A_CARDS_ID)
-        vm.showAnswer()
-    }
-    render("karte-stufen") { vm ->
-        val id = widder.ui.StarterKits.DEGREES_ID + widder.ui.StarterKits.CARDS_SUFFIX
-        vm.addStarterKit(id)
-        vm.startReview(id)
+        vm.startReview(cardsKit)
+        vm.review!!.card = vm.cardsIn(cardsKit).first()
         vm.showAnswer()
     }
     render("karte-akkord") { vm ->
-        vm.startReview(widder.ui.StarterKits.A_CARDS_ID)
+        // An inversion: the back names only the chord.
+        vm.startReview(cardsKit)
+        vm.review!!.card = vm.cardsIn(cardsKit).first { it.voicing.startsWith("Amaj7/Cis") }
         vm.showAnswer()
+    }
+    render("editor-umkehrung") { vm ->
+        vm.editCard(vm.cardsIn(cardsKit).first { it.voicing.startsWith("Amaj7/Cis") })
     }
     render("editor-karte-akkorde") { vm ->
         vm.newCard(vm.cardDeck())
@@ -164,58 +163,29 @@ fun main() {
         vm.tapTile(round.pool.first { it.token.key != round.answer[0].key })
         vm.checkRound()
     }
-    render("akkordtypen") { it.trainKit(widder.ui.StarterKits.CHORD_TYPES_ID, listOf("Cmin7")) }
-    render("stufen") { vm ->
-        vm.trainKit(widder.ui.StarterKits.DEGREES_ID, listOf("C", "Am", "F", "G"))
+    render("akkordarten") { it.trainKit(widder.ui.StarterKits.CHORDS_ID, listOf("Amaj7")) }
+    render("akkordarten-zweiklang") { vm ->
+        vm.trainKit(widder.ui.StarterKits.CHORDS_ID, listOf("Amin(no5)"))
         val round = vm.training!!.round!!
         vm.placeTile(round.pool.first { it.token.key == round.answer[0].key }, 0)
-    }
-    render("stufen-richtig") { vm ->
-        vm.trainKit(widder.ui.StarterKits.DEGREES_ID, listOf("C", "F", "G", "C"))
-        val round = vm.training!!.round!!
-        round.answer.forEachIndexed { i, t -> vm.placeTile(round.pool.first { p -> p.token.key == t.key && round.inPool(p) }, i) }
         vm.checkRound()
-    }
-    render("dorisch") { vm ->
-        vm.trainKit("startkit-d-dorisch", listOf("Dm", "C", "G", "Dm"))
-        val round = vm.training!!.round!!
-        vm.placeTile(round.pool.first { it.token.key == round.answer[0].key }, 0)
-    }
-    render("editor-bemerkungen") { vm ->
-        vm.addStarterKit("startkit-stufen-a-moll")
-        vm.editCard(vm.cardsIn("startkit-stufen-a-moll").first { it.answer == listOf("Am", "Dm", "E", "Am") })
-    }
-    render("stufen-liste") { vm ->
-        vm.addStarterKit(widder.ui.StarterKits.DEGREES_ID)
-        vm.open(Screen.Browse(widder.ui.StarterKits.DEGREES_ID))
     }
     render("stapel-optionen") { vm ->
-        vm.addStarterKit(widder.ui.StarterKits.DEGREES_ID)
         vm.open(Screen.Decks(DeckKind.CHORDS))
-        vm.deckDialog = widder.ui.DeckDialog.Options(widder.ui.StarterKits.DEGREES_ID)
+        vm.deckDialog = widder.ui.DeckDialog.Options(widder.ui.StarterKits.CHORDS_ID)
     }
-    render("akkordtypen-tags") { vm ->
-        vm.setStudyTags(widder.ui.StarterKits.CHORD_TYPES_ID, listOf("Basis"))
-        vm.open(Screen.Decks(DeckKind.CHORDS))
+    render("stapel-nummern", keys = true) { vm -> vm.pickDeckNumber(3) }
+    render("stapel-markieren", keys = true) { vm ->
+        vm.pickDeckNumber(2, mark = true)
+        vm.toggleMark(vm.numberedDecks()[3].id)
     }
-    render("akkordtypen-optionen") { vm ->
-        vm.setStudyTags(widder.ui.StarterKits.CHORD_TYPES_ID, listOf("Mittel", "Fortgeschritten"))
-        vm.open(Screen.Decks(DeckKind.CHORDS))
-        vm.deckDialog = widder.ui.DeckDialog.Options(widder.ui.StarterKits.CHORD_TYPES_ID)
+    render("stapel-loeschen", keys = true) { vm ->
+        vm.pickDeckNumber(2, mark = true)
+        vm.toggleMark(vm.numberedDecks()[3].id)
+        vm.deleteMarked()
     }
-    render("akkordtypen-c13") { it.trainKit(widder.ui.StarterKits.CHORD_TYPES_ID, listOf("C13")) }
-    render("akkordfolgen") { vm ->
-        vm.trainKit(widder.ui.StarterKits.PROGRESSIONS_ID, listOf("Dm", "G"))
-        val round = vm.training!!.round!!
-        round.answer.forEachIndexed { i, t -> vm.placeTile(round.pool.first { p -> p.token.key == t.key && round.inPool(p) }, i) }
-        vm.checkRound()
-    }
-    render("akkordfolgen-karte") { vm ->
-        val id = widder.ui.StarterKits.PROGRESSIONS_ID + widder.ui.StarterKits.CARDS_SUFFIX
-        vm.startReview(id)
-        vm.review!!.card = vm.cardsIn(id).first { it.answer == listOf("G", "Am") }
-        vm.showAnswer()
-    }
+    render("hilfe", keys = true) { it.open(Screen.Help) }
+    render("hilfe-handy") { it.open(Screen.Help) }
     render("kacheln") { it.open(Screen.Tiles) }
     render("kacheln-3x4") { vm ->
         vm.updateSettings { it.copy(tileColumns = 3, tileRows = 4) }
@@ -227,7 +197,7 @@ fun main() {
         vm.saveTile(1, widder.core.GestureTile("Bild", widder.core.TileColor.PURPLE, longPress = widder.core.Action(widder.core.ActionKind.SETTINGS)))
         vm.onTileGesture(1, long = true)
     }
-    render("prefix") { vm -> vm.onShortcutKey(widder.core.KeyStroke("B", ctrl = true), null) }
+    render("prefix", keys = true) { vm -> vm.onShortcutKey(widder.core.KeyStroke("B", ctrl = true), null) }
     render("stapel-waehlen") { vm -> vm.run(widder.core.Action(widder.core.ActionKind.RECORD)) }
     render("kuerzel") { vm -> vm.shortcutEdit = widder.ui.ShortcutEdit('L') }
     println("Screens in ${out.absolutePath}")

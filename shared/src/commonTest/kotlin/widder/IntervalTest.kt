@@ -12,7 +12,6 @@ import widder.music.Midi
 import widder.music.MidiAnalysis
 import widder.music.Notation
 import widder.music.Token
-import widder.ui.StarterKits
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -67,17 +66,13 @@ class IntervalTest {
     }
 
     @Test
-    fun kitsHaveEveryIntervalChordTypeAndDegree() {
+    fun everyIntervalAndChordTypeReadsBack() {
         assertEquals(24, (1..24).map { Interval.name(it) }.toSet().size)
-        // Every chord type the app knows, each once.
-        val types = StarterKits.CHORD_TYPES.map { Chord.parse(it)!!.quality }
-        assertEquals(Quality.entries.toSet(), types.toSet())
-        assertEquals(types.size, types.toSet().size)
-        // The names the kit writes read back the same.
+        // The names the app writes read back the same.
         for (q in Quality.entries) assertEquals(q, Chord.parse(Chord(0, q).name())?.quality, q.name)
         val c = Key.parse("C")!!
         for (german in listOf(false, true)) {
-            val numerals = StarterKits.DEGREES.map { Harmony.numeral(Chord.parse(it, german)!!, c) }
+            val numerals = listOf("C", "Dm", "Em", "F", "G", "Am", "Hdim").map { Harmony.numeral(Chord.parse(it, german)!!, c) }
             assertEquals(listOf("I", "ii", "iii", "IV", "V", "vi", "vii°"), numerals)
         }
     }

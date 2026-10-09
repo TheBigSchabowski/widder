@@ -57,6 +57,8 @@ private val recordingAudio = AudioSystem(
 
 class ActionsTest {
     private val ctrlB = KeyStroke("B", ctrl = true)
+    private val cardsKit = StarterKits.CHORDS_ID + StarterKits.CARDS_SUFFIX
+    private val chordsKit = StarterKits.CHORDS_ID
 
     private fun vm(audio: AudioSystem = SilentAudio.system, files: Files = Files()) =
         AppViewModel(Store(files), audio, live = false, main = Dispatchers.Unconfined, work = Dispatchers.Unconfined)
@@ -68,7 +70,7 @@ class ActionsTest {
         vm.updateSettings { it.copy(tileColumns = 3, tileRows = 2) }
         assertEquals(6, vm.tiles.size)
         assertTrue(vm.tiles[5].isEmpty)
-        val record = GestureTile("Jazz", longPress = Action(ActionKind.RECORD, StarterKits.A_CARDS_ID))
+        val record = GestureTile("Jazz", longPress = Action(ActionKind.RECORD, cardsKit))
         vm.saveTile(5, record)
         vm.updateSettings { it.copy(tileColumns = 2, tileRows = 2) }
         assertEquals(4, vm.tiles.size)
@@ -102,10 +104,10 @@ class ActionsTest {
         vm.updateSettings { it.copy(tileScope = TileScope.EVERYWHERE) }
         assertTrue(vm.tilesActive())
         vm.home()
-        vm.startTraining(StarterKits.A_CHORDS_ID)
+        vm.startTraining(chordsKit)
         assertFalse(vm.tilesActive(), "dragging chords needs the gestures itself")
         vm.home()
-        vm.newCard(StarterKits.A_CARDS_ID)
+        vm.newCard(cardsKit)
         assertFalse(vm.tilesActive(), "so does typing")
         vm.cancelEditor()
 
@@ -119,7 +121,7 @@ class ActionsTest {
     @Test
     fun shuffleButtonAndDeckOption() {
         val vm = vm()
-        val deck = vm.deck(StarterKits.A_CARDS_ID)!!
+        val deck = vm.deck(cardsKit)!!
         assertTrue(deck.shuffle, "mixed unless switched off")
         // Switched off: the order the cards were made, until the button mixes them.
         vm.updateDeck(deck.copy(shuffle = false))
@@ -131,7 +133,7 @@ class ActionsTest {
         assertEquals(Screen.Review(deck.id), vm.screen)
 
         vm.home()
-        vm.startTraining(StarterKits.A_CHORDS_ID)
+        vm.startTraining(chordsKit)
         val exercise = vm.training!!.card!!.id
         vm.shuffle()
         assertTrue(vm.training!!.card!!.id != exercise)
@@ -143,30 +145,30 @@ class ActionsTest {
         val vm = vm()
         vm.run(Action(ActionKind.NEW_CARD))
         assertEquals(ActionKind.NEW_CARD, vm.deckPick?.kind)
-        vm.pickDeck(StarterKits.A_CHORDS_ID)
+        vm.pickDeck(chordsKit)
         assertNull(vm.deckPick)
         assertEquals(Screen.EditCard, vm.screen)
-        assertEquals(StarterKits.A_CHORDS_ID, vm.editor?.deckId)
+        assertEquals(chordsKit, vm.editor?.deckId)
         vm.cancelEditor()
 
-        vm.open(Screen.Browse(StarterKits.A_CARDS_ID))
+        vm.open(Screen.Browse(cardsKit))
         vm.run(Action(ActionKind.NEW_CARD))
         assertNull(vm.deckPick)
-        assertEquals(StarterKits.A_CARDS_ID, vm.editor?.deckId)
+        assertEquals(cardsKit, vm.editor?.deckId)
         vm.editor!!.front = "Welche Tonart?"
         vm.saveEditor()
-        assertEquals(Screen.Browse(StarterKits.A_CARDS_ID), vm.screen, "back where the card was started")
+        assertEquals(Screen.Browse(cardsKit), vm.screen, "back where the card was started")
     }
 
     @Test
     fun fixedDeckWinsAndStudyPicksTheRightScreen() {
         val vm = vm()
-        vm.open(Screen.Browse(StarterKits.A_CARDS_ID))
-        vm.run(Action(ActionKind.STUDY, StarterKits.A_CHORDS_ID))
+        vm.open(Screen.Browse(cardsKit))
+        vm.run(Action(ActionKind.STUDY, chordsKit))
         assertTrue(vm.screen is Screen.Train)
-        assertEquals(listOf(Screen.Home, Screen.Train(StarterKits.A_CHORDS_ID)), vm.stack, "jumps start from home")
-        vm.run(Action(ActionKind.STUDY, StarterKits.A_CARDS_ID))
-        assertEquals(Screen.Review(StarterKits.A_CARDS_ID), vm.screen)
+        assertEquals(listOf(Screen.Home, Screen.Train(chordsKit)), vm.stack, "jumps start from home")
+        vm.run(Action(ActionKind.STUDY, cardsKit))
+        assertEquals(Screen.Review(cardsKit), vm.screen)
         assertNotNull(vm.review)
         assertNull(vm.training)
     }
@@ -181,29 +183,78 @@ class ActionsTest {
     @Test
     fun nothingRunsOverAnOpenCard() {
         val vm = vm()
-        vm.newCard(StarterKits.A_CARDS_ID)
+        vm.newCard(cardsKit)
         vm.run(Action(ActionKind.OPEN_CHORDS))
         assertEquals(Screen.EditCard, vm.screen)
     }
 
     @Test
-    fun prefixThenLetterOrDigit() {
+    fun prefixThenLetter() {
         val vm = vm()
-        assertFalse(vm.onShortcutKey(KeyStroke("K"), 'k'), "without the prefix a letter is just a letter")
+        assertFalse(vm.onShortcutKey(KeyStroke("F"), 'f'), "without the prefix a letter is just a letter")
         assertTrue(vm.onShortcutKey(ctrlB, null))
         assertTrue(vm.prefixPending)
-        assertTrue(vm.onShortcutKey(KeyStroke("K"), 'k'))
+        assertTrue(vm.onShortcutKey(KeyStroke("F"), 'f'))
         assertFalse(vm.prefixPending)
         assertEquals(Screen.Decks(DeckKind.CARDS), vm.screen)
 
         vm.onShortcutKey(ctrlB, null)
-        vm.onShortcutKey(KeyStroke("A"), 'a')
+        vm.onShortcutKey(KeyStroke("M"), 'm')
         assertEquals(Screen.Decks(DeckKind.CHORDS), vm.screen)
 
         vm.onShortcutKey(ctrlB, null)
         vm.onShortcutKey(KeyStroke("Escape"), null)
         assertFalse(vm.prefixPending)
         assertEquals(Screen.Decks(DeckKind.CHORDS), vm.screen)
+
+        vm.onShortcutKey(ctrlB, null)
+        vm.runShortcut('?')
+        assertEquals(Screen.Help, vm.screen)
+    }
+
+    @Test
+    fun prefixAndNumberPicksTheDeck() {
+        val vm = vm()
+        // Numbered across both lists: the flash cards first, then the multiple choice.
+        val numbered = vm.numberedDecks()
+        assertEquals(vm.decks(DeckKind.CARDS) + vm.decks(DeckKind.CHORDS), numbered)
+        val third = numbered[2]
+        assertEquals(3, vm.deckNumber(third.id))
+        vm.onShortcutKey(ctrlB, null)
+        vm.onShortcutKey(KeyStroke("3"), '3')
+        assertEquals(third.id, vm.selectedDeckId)
+        assertEquals(Screen.Decks(third.kind), vm.screen)
+
+        // The picked deck is the one the deck actions go to: L learns it, Y opens its options.
+        vm.onShortcutKey(ctrlB, null)
+        vm.onShortcutKey(KeyStroke("Y"), 'y')
+        assertEquals(widder.ui.DeckDialog.Options(third.id), vm.deckDialog)
+        vm.deckDialog = null
+        vm.onShortcutKey(ctrlB, null)
+        vm.onShortcutKey(KeyStroke("L"), 'l')
+        assertNull(vm.deckPick)
+        assertTrue(vm.screen == Screen.Review(third.id) || vm.screen == Screen.Train(third.id), "${vm.screen}")
+
+        // Without a deck Y is the settings.
+        vm.home()
+        vm.onShortcutKey(ctrlB, null)
+        vm.onShortcutKey(KeyStroke("Y"), 'y')
+        assertEquals(Screen.Settings, vm.screen)
+
+        // Shift + number ticks decks for deleting, across both lists.
+        vm.onShortcutKey(ctrlB, null)
+        vm.onShortcutKey(KeyStroke("1", shift = true), '!')
+        vm.onShortcutKey(ctrlB, null)
+        vm.onShortcutKey(KeyStroke("${numbered.size}", shift = true), '"')
+        assertTrue(vm.marking)
+        assertEquals(setOf(numbered.first().id, numbered.last().id), vm.marked)
+        assertTrue(vm.back(), "Esc ends the marking first")
+        assertFalse(vm.marking)
+        assertTrue(vm.marked.isEmpty())
+
+        vm.onShortcutKey(ctrlB, null)
+        vm.onShortcutKey(KeyStroke("9"), '9')
+        assertEquals("Es gibt keinen Stapel 9", vm.message)
     }
 
     @Test
@@ -220,10 +271,10 @@ class ActionsTest {
     @Test
     fun ownShortcutsAndPrefix() {
         val vm = vm()
-        vm.saveShortcut(null, Shortcut('J', Action(ActionKind.BROWSE, StarterKits.A_CHORDS_ID)))
-        vm.saveShortcut('K', Shortcut('A', Action(ActionKind.SETTINGS)))
-        assertEquals(1, vm.shortcuts.count { it.key == 'A' }, "a taken key is taken over")
-        assertNull(vm.shortcuts.firstOrNull { it.key == 'K' })
+        vm.saveShortcut(null, Shortcut('J', Action(ActionKind.BROWSE, chordsKit)))
+        vm.saveShortcut('F', Shortcut('M', Action(ActionKind.SETTINGS)))
+        assertEquals(1, vm.shortcuts.count { it.key == 'M' }, "a taken key is taken over")
+        assertNull(vm.shortcuts.firstOrNull { it.key == 'F' })
 
         vm.capturingPrefix = true
         vm.onShortcutKey(KeyStroke("G"), 'g')
@@ -236,13 +287,13 @@ class ActionsTest {
         assertFalse(vm.onShortcutKey(ctrlB, null), "the old prefix is free again")
         vm.onShortcutKey(altSpace, ' ')
         vm.onShortcutKey(KeyStroke("J"), 'j')
-        assertEquals(Screen.Browse(StarterKits.A_CHORDS_ID), vm.screen)
+        assertEquals(Screen.Browse(chordsKit), vm.screen)
     }
 
     @Test
     fun recordTileMakesACardFromTheRecording() {
         val vm = vm(recordingAudio)
-        vm.run(Action(ActionKind.RECORD, StarterKits.A_CARDS_ID))
+        vm.run(Action(ActionKind.RECORD, cardsKit))
         assertEquals(Screen.EditCard, vm.screen)
         assertNotNull(vm.recording)
         vm.stopRecording()
@@ -251,7 +302,7 @@ class ActionsTest {
 
         vm.closeAudioEditor()
         vm.cancelEditor()
-        vm.run(Action(ActionKind.RECORD, StarterKits.A_CARDS_ID))
+        vm.run(Action(ActionKind.RECORD, cardsKit))
         vm.back()
         assertNull(vm.recording)
         assertEquals(Screen.Home, vm.screen, "a discarded quick recording takes its empty card along")

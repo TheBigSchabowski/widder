@@ -115,6 +115,7 @@ object Harmony {
             Quality.MINOR_ADD4 -> "add4"
             Quality.MINOR11 -> "11"
             Quality.OCTAVE -> "-Okt"
+            Quality.MINOR_THIRD -> "(no5)"
             else -> chord.quality.symbol
         }
         val inversion = chord.bass?.let { bass ->

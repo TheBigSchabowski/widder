@@ -6,8 +6,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class ActionKind(val label: String, val needsDeck: Boolean = false) {
     NONE("Nichts"),
-    OPEN_CARDS("Karteikarten öffnen"),
-    OPEN_CHORDS("Akkord-Training öffnen"),
+    OPEN_CARDS("Flash Cards öffnen"),
+    OPEN_CHORDS("Multiple Choice öffnen"),
     STUDY("Lernen", needsDeck = true),
     BROWSE("Stapel öffnen", needsDeck = true),
     NEW_CARD("Neue Karte", needsDeck = true),
@@ -16,6 +16,10 @@ enum class ActionKind(val label: String, val needsDeck: Boolean = false) {
     REWARD("Bild ansehen"),
     SETTINGS("Einstellungen"),
     HOME("Startbildschirm"),
+
+    /** The options of the chosen or open deck; without one the settings. */
+    CONFIG("Konfiguration"),
+    HELP("Modi & Tasten"),
 }
 
 /**
@@ -51,7 +55,7 @@ data class GestureTile(
 enum class TileScope(val label: String) {
     OFF("aus"),
     HOME("nur Startbildschirm"),
-    EVERYWHERE("überall außer Editor und Training"),
+    EVERYWHERE("überall außer Editor und Multiple Choice"),
 }
 
 /** A key with its modifiers, e.g. the prefix ⌃B. [key] is "A".."Z", "0".."9" or "Space". */
@@ -84,7 +88,7 @@ data class KeyStroke(
     }
 }
 
-/** Prefix + [key] runs [action] – like tmux: ⌃B, then a letter. */
+/** Prefix + [key] runs [action] – like tmux: ⌃B, then a letter (or "?"). */
 @Serializable
 data class Shortcut(val key: Char, val action: Action)
 
@@ -101,8 +105,9 @@ object Shortcuts {
     )
 
     val defaultShortcuts = listOf(
-        Shortcut('K', Action(ActionKind.OPEN_CARDS)),
-        Shortcut('A', Action(ActionKind.OPEN_CHORDS)),
+        Shortcut('F', Action(ActionKind.OPEN_CARDS)),
+        Shortcut('M', Action(ActionKind.OPEN_CHORDS)),
+        Shortcut('Y', Action(ActionKind.CONFIG)),
         Shortcut('L', Action(ActionKind.STUDY)),
         Shortcut('N', Action(ActionKind.NEW_CARD)),
         Shortcut('R', Action(ActionKind.RECORD)),
@@ -111,7 +116,11 @@ object Shortcuts {
         Shortcut('B', Action(ActionKind.REWARD)),
         Shortcut('S', Action(ActionKind.SETTINGS)),
         Shortcut('H', Action(ActionKind.HOME)),
+        Shortcut('?', Action(ActionKind.HELP)),
     )
+
+    /** Prefix + digit picks the deck with that number, so digits are not free for shortcuts. */
+    fun bindable(key: Char): Boolean = key.isLetter() || key == '?'
 
     /** 2 × 2, row by row: the most used actions on the long press, which never also hits a button. */
     val defaultTiles = listOf(

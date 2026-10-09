@@ -24,6 +24,7 @@ sealed interface Screen {
     data class Train(val deckId: String) : Screen
     data object Settings : Screen
     data object Tiles : Screen
+    data object Help : Screen
 
     /** One field of the gesture grid, counted row by row. */
     data class EditTile(val index: Int) : Screen
@@ -76,6 +77,7 @@ class CardEditor(val original: Card?, val deckId: String, val kind: DeckKind) {
     var key by mutableStateOf(original?.key ?: "")
     var label by mutableStateOf(original?.label ?: "")
     var notes by mutableStateOf(original?.notes ?: "")
+    var voicing by mutableStateOf(original?.voicing ?: "")
 
     fun clip(back: Boolean): Clip? = if (back) backAudio else frontAudio
     fun setClip(back: Boolean, clip: Clip?) {

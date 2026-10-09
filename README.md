@@ -1,17 +1,17 @@
 # Widder
 
-Spaced-Repetition-Lernapp für Musik: Anki-artige Karteikarten, ein kleiner Audio-Editor und
-Akkord-Gehörtraining per Drag & Drop. Eine Codebasis (Kotlin Multiplatform + Compose
+Spaced-Repetition-Lernapp für Musik: Anki-artige Flash Cards, ein kleiner Audio-Editor und
+Gehörtraining als Multiple Choice per Drag & Drop. Eine Codebasis (Kotlin Multiplatform + Compose
 Multiplatform) für **Android**, **macOS** und **Linux**.
 
 ## Die zwei Wege
 
-**Karteikarten** – Stapel wie in Anki: Neu / Lernen / Fällig, Lernschritte 1 Min → 10 Min,
+**Flash Cards** – Stapel wie in Anki: Neu / Lernen / Fällig, Lernschritte 1 Min → 10 Min,
 danach Tagesintervalle aus FSRS (Nochmal / Schwer / Gut / Leicht mit Intervall-Vorschau),
 Tageslimits pro Stapel, Rückgängig, Aussetzen, Suche. Jede Seite einer Karte kann Audio haben:
 aufnehmen, Datei wählen, MIDI abspielen.
 
-**Akkord-Training** – Dateien hinzufügen, der Dateiname ist die Lösung:
+**Multiple Choice** – Dateien hinzufügen, der Dateiname ist die Lösung:
 
 | Datei | Lösung |
 |---|---|
@@ -32,49 +32,30 @@ nicht in der, in der sie angelegt wurden – sonst lernt man bei Intervallen die
 der Klänge. Abschalten pro Stapel in den Stapel-Optionen („Mischen“). Der Knopf „Mischen“ beim
 Lernen und im Training (Taste M) mischt sofort neu und legt die aktuelle Karte zurück.
 
-**Standardpaket** (vorinstalliert, ab 1.8.0 auch in bestehenden Sammlungen – einmalig; ein danach
-gelöschter Stapel bleibt weg), jeweils als Akkord-Training und als Karteikarten:
-
-- **Startkit: Akkordtypen** – alle 32 Akkordtypen auf C in allen Umkehrungen (112 Übungen),
-  auch die Zweiklänge Oktave und Powerchord (C5, ohne Extra-Bass):
-  - `Basis`: Cmaj, Cmin, C5, C-Oktave, C7, Cmaj7, Cmin7
-  - `Mittel`: Csus2, Csus4, Cdim, Caug, C6, Cmin6, Cmaj(add9), Cmin(add9), Cadd4, Cmin(add4), C7sus4
-  - `Fortgeschritten`: Cdim7, Cmin7b5, CminMaj7, C7#5, C9, Cmaj9, Cmin9, C6add9, C7b9, C7#9, C11, Cmin11, C13, Cmaj13
-- **Startkit: Akkordfolgen** – 26 häufige Schritte von einem Akkord zum nächsten in C-Dur und
-  a-Moll (Tonika → Subdominante, Dominante → Tonika, Trugschluss, ii – V, Moll-Subdominante,
-  Doppeldominante …), angezeigt als Stufen. Vorweg klingt die Tonika als Bezug, denn V – I in C
-  klingt allein genau wie I – IV in G. Die Funktionen stehen in den Bemerkungen.
-
-Hatte ein Stapel schon die alten sechs Akkordtypen, bleiben deren Karten samt Lernstand und
-bekommen ihren Tag; die neuen kommen dazu.
-
-**Tags:** Hat ein Stapel getaggte Karten, stehen die Tags unter ihm in der Stapelliste (und in den
-Stapel-Optionen). Antippen lernt nur noch Karten mit diesem Tag – mehrere gehen zusammen
-(„Basis“ + „Mittel“), „Alle“ hebt den Filter auf. Im Training kommen dann auch die falschen
-Kacheln nur aus den gewählten Karten, also keine C13 zwischen Dur und Moll. Eigene Tags vergibt
-der Karten-Editor.
-
-**Startkit: A-Akkorde** (bei neuen Sammlungen dabei, sonst unter Akkord-Training → „Hinzufügen“):
-Am(add9), Amaj(add9), A7, Amaj7, Am/C, Am/E, Amaj, A/C#, A/E, A-Oktave, A5 – jeder einzeln zum
-Erkennen, dazu ein paar Folgen daraus (u. a. Amaj → A/C# → A/E). Die falschen Kacheln kommen aus
-dem Kit selbst. Amaj klingt in Grundstellung ohne Extra-Bass, die Umkehrungen mit tiefem Basston.
-
-**Weitere Startkits** (Akkord-Training → „Hinzufügen“, jedes mit eigenem Ordner; jedes auch als
-Karteikarten unter Karteikarten → „Hinzufügen“, mit demselben Ordner):
+**Startkits** (vorinstalliert, jeweils als Flash Cards und als Multiple Choice, jedes mit eigenem
+Ordner; ein gelöschtes lässt sich in der Stapelliste wieder „Hinzufügen“):
 
 | Startkit | Inhalt |
 |---|---|
 | Intervalle gleichzeitig | alle 24 Intervalle von der kleinen Sekunde bis zur Quintdezime, beide Töne zusammen |
 | Intervalle nacheinander | dieselben, erst der tiefe, dann der hohe Ton |
-| Stufen in C-Dur | jede Stufe nach der I (C → F = I IV) und typische Folgen (I IV V I, I V vi IV, ii V I …), angezeigt nur als Stufen |
-| Stufen in a-Moll | i ii° III iv v V VI VII – mit E-Dur als Dominante (i iv V i, Andalusische Kadenz …) |
-| D-Dorisch, E-Phrygisch, F-Lydisch, G-Mixolydisch | die Modi auf den weißen Tasten, Stufen wie üblich gegen Dur gezählt (Dorisch i ii bIII IV v vi° bVII) |
+| Akkordarten | Amaj, Amin, Amaj7, A7, Amin7, Amaj(add9), Amin(add9), Adim, A5, Amaj(no5), Amin(no5), A-Oktave – in Grundstellung und allen Umkehrungen (34 Karten) |
 
-In den Stufen- und Modus-Kits klingen die Akkorde nach dem ersten auch in Umkehrungen; die Lösung
-bleibt der Akkord selbst („F“, nicht „F/A“). Welche Umkehrung erklingt, steht in den
-**Bemerkungen** der Karte. Auf Karteikarten stehen sie auf der Rückseite, im Akkord-Training
-zeigt sie nur der Editor.
-Als Tonart verstehen Stapel und Karten jetzt auch Modi: `D-Dorisch`, `F lydisch`, `G-Mixolydian`.
+Bei den Akkordarten ist die Lösung immer nur der Akkord („Amaj7“, nicht „Amaj7/Cis“). Welche
+Umkehrung erklingt, zeigt nur der Karten-Editor („Was das Audio spielt“), nie das Lernen.
+`Amaj(no5)` und `Amin(no5)` sind die Terz-Zweiklänge zu Dur und Moll (A–Cis, A–C); umgekehrt
+werden sie zur Sexte, A5 zur Quarte. Verstanden wird auch `A-Durterz` / `A-Mollterz`.
+
+Ab 1.9.0 bekommen bestehende Sammlungen die neuen Startkits einmalig dazu; die alten (A-Akkorde,
+Akkordtypen, Akkordfolgen, Stufen und Modi) bleiben, bis man sie löscht.
+
+**Mehrere Stapel löschen:** In der Stapelliste „Markieren“, Stapel antippen (oder „Alle“), dann
+„Löschen“ – Widder fragt einmal nach und zeigt, welche Stapel gehen.
+
+**Tags:** Hat ein Stapel getaggte Karten (Karten-Editor → Schlagwörter), stehen die Tags unter ihm
+in der Stapelliste (und in den Stapel-Optionen). Antippen lernt nur noch Karten mit diesem Tag –
+mehrere gehen zusammen, „Alle“ hebt den Filter auf. Bei Multiple Choice kommen dann auch die
+falschen Kacheln nur aus den gewählten Karten.
 
 Jedes Intervall beginnt auf einem anderen Ton, damit die Tonhöhe nichts verrät; als falsche
 Kacheln kommen die Nachbarn (kleine statt große Terz) und dasselbe Intervall eine Oktave weiter.
@@ -102,18 +83,18 @@ Eingelesen wird beim Start, beim Öffnen des Stapels und wenn man zu Widder zur�
 per „Neu einlesen“. `/` ist in Dateinamen verboten; `Am∕C.mid` (mit dem Divisionsstrich ∕)
 wird als `Am/C` gelesen.
 
-**Startkit:** Auf dem Mac liegen die Dateien automatisch in
-`~/Documents/Widder/Startkit A-Akkorde`, unter Linux im Dokumente-Ordner des Benutzers
-(z. B. `~/Dokumente/Widder/Startkit A-Akkorde`). Auf Android „Ordner“ tippen und einen Ordner wählen
+**Startkits:** Auf dem Mac liegen die Dateien automatisch in
+`~/Documents/Widder/Startkit Akkordarten` usw., unter Linux im Dokumente-Ordner des Benutzers
+(z. B. `~/Dokumente/Widder/Startkit Akkordarten`). Auf Android „Ordner“ tippen und einen Ordner wählen
 (am besten im Dialog einen neuen anlegen, z. B. `Documents/Widder Startkit`) – Android lässt
 Apps nur in Ordner schreiben, die man selbst ausgesucht hat.
 
-## Akkorde auf Karteikarten und Stufen
+## Akkorde auf Flash Cards und Stufen
 
-Auch eine Karteikarte kann Akkorde haben (Feld „Akkorde“ im Editor). Sie erscheinen auf der
-Rückseite, und „Als Audio erzeugen“ macht aus ihnen gleich den Klang der Vorderseite. Das
-Startkits gibt es deshalb auch als Karteikarten-Stapel: vorne die Frage und der Klang, hinten
-Akkorde, Stufen oder Intervall und die Bemerkungen.
+Auch eine Flash Card kann Akkorde haben (Feld „Akkorde“ im Editor). Sie erscheinen auf der
+Rückseite, und „Als Audio erzeugen“ macht aus ihnen gleich den Klang der Vorderseite. Die
+Startkits gibt es deshalb auch als Flash Cards: vorne die Frage und der Klang, hinten Akkord
+oder Intervall.
 
 Akkorde werden mit ihrer **Stufe** gezeigt: `I (A)`, `IV (D)`, `bVII (G)`, `vi (F#m)`,
 Umkehrungen als `I/3` (Terz im Bass) und `I/5` (Quinte im Bass). Die Tonart erkennt Widder aus den
@@ -123,7 +104,7 @@ Training die „I“-Kachel verraten, was zuerst kommt. Festlegen lässt sie sic
 
 Für alles ohne Akkorde oder feste Tonart gibt es das Feld **„Eigener Text statt Akkorden und
 Stufen“** (z. B. `Son Clave 3-2`): Ist es ausgefüllt, zeigt die Karte diesen Text statt der
-Akkord-Chips; im Training erscheint er nach dem Prüfen, die Stufen fallen weg.
+Akkord-Chips; bei Multiple Choice erscheint er nach dem Prüfen, die Stufen fallen weg.
 
 Jedes Audio lässt sich per **„Herunterladen“** speichern – als WAV so wie es klingt (mit Schnitt
 und Effekten, MIDI wird dabei zu Audio) oder als Originaldatei.
@@ -156,24 +137,34 @@ Aktion für doppelt Tippen und Halten:
 
 | Aktion | was passiert |
 |---|---|
-| Karteikarten / Akkord-Training öffnen | die Stapelübersicht |
+| Flash Cards / Multiple Choice öffnen | die Stapelübersicht |
 | Lernen | Abfrage bzw. Training des Stapels |
 | Stapel öffnen | die Kartenliste |
 | Neue Karte | der Karten-Editor |
 | Aufnehmen → Karte | nimmt sofort auf; danach öffnen Schnitt und Editor, aus der Aufnahme wird eine Karte |
 | Dateien importieren | Dateiauswahl, direkt in den Stapel |
-| Bild ansehen, Einstellungen, Startbildschirm | |
+| Konfiguration | die Stapel-Optionen des gewählten oder offenen Stapels, sonst die Einstellungen |
+| Bild ansehen, Einstellungen, Startbildschirm, Modi & Tasten | |
 
 Bei Aktionen mit Stapel legt man pro Geste einen festen Stapel fest – oder nicht: Dann nimmt die
 Aktion den gerade offenen Stapel und fragt sonst nach. Die Kacheln hören nur auf dem
-Startbildschirm, überall (außer im Karten-Editor und im Akkord-Training, die die Gesten selbst
+Startbildschirm, überall (außer im Karten-Editor und bei Multiple Choice, die die Gesten selbst
 brauchen) oder gar nicht. Eine ausgelöste Kachel leuchtet kurz mit ihrer Aktion auf; „Felder
 andeuten“ zeigt das Raster dauerhaft. Standard: oben links Halten = Lernen, oben rechts Halten =
-Neue Karte, unten links Halten = Karteikarten, unten rechts Halten = Aufnehmen → Karte.
+Neue Karte, unten links Halten = Flash Cards, unten rechts Halten = Aufnehmen → Karte.
 
 **Tastenkürzel (Mac und Linux)** wie in tmux: erst den Prefix **⌃B** (Linux: Strg+B), loslassen, dann eine Taste. Nach dem
-Prefix erscheint unten eine Übersicht aller Tasten (auch anklickbar). Buchstaben und Ziffern sind frei belegbar (Standard: K Karteikarten, A Akkord-Training, L Lernen,
-N Neue Karte, R Aufnehmen, I Importieren, O Stapel öffnen, B Bild, S Einstellungen, H Start). Der
+Prefix erscheint unten eine Übersicht aller Tasten (auch anklickbar). Buchstaben sind frei belegbar (Standard: F Flash Cards,
+M Multiple Choice, Y Konfiguration, L Lernen, N Neue Karte, R Aufnehmen, I Importieren, O Stapel
+öffnen, B Bild, S Einstellungen, H Start, ? Modi & Tasten).
+
+Die Ziffern wählen Stapel: Jeder Stapel trägt vor dem Namen eine Nummer, erst die Flash Cards,
+dann Multiple Choice. **⌃B 3** zeigt Stapel 3 hervorgehoben in seiner Liste; danach gelten
+⌃B L, O, N, R, I und Y für ihn. **⌃B ⇧3** markiert ihn zum Löschen (nochmal = ab), auch über
+beide Listen hinweg. Nummern gibt es für die ersten neun Stapel.
+
+Alle Modi, Kürzel und Kacheln stehen auf einer Seite: „?“ auf dem Startbildschirm, „Modi & Tasten“
+in den Einstellungen oder ⌃B ?. Der
 Prefix ist wählbar (⌃B, ⌃A, ⌃Leertaste, ⌘K) oder selbst einzudrücken („Eigenen drücken …“,
 z. B. ⌥Leertaste oder F5) oder ganz aus.
 
@@ -209,7 +200,7 @@ lassen sich über die installierte App aktualisieren. Das Icon kommt aus `tools/
 (`desktopApp/icon.png`, das Fenster-Icon unter Linux, ist daraus abgeleitet).
 
 Auf dem Computer (Mac, Linux): Dateien (auch ganze Ordner) einfach ins Fenster ziehen. Tastatur
-beim Abfragen: Leertaste, 1–4, R (nochmal hören), E (bearbeiten), M (mischen), ⌘Z bzw. Strg+Z; im Training
+bei Flash Cards: Leertaste, 1–4, R (nochmal hören), E (bearbeiten), M (mischen), ⌘Z bzw. Strg+Z; bei Multiple Choice
 Enter = prüfen/weiter, ⌫ = letzten Akkord zurücklegen; Esc = zurück.
 Auf Android: „Importieren“, oder aus einer anderen App „Teilen → Widder“ / „Öffnen mit“.
 

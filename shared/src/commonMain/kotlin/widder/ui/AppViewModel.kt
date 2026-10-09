@@ -123,6 +123,16 @@ class AppViewModel(
     /** Settings: the next key combination becomes the prefix. */
     var capturingPrefix by mutableStateOf(false)
 
+    /** The deck picked with prefix + number; actions without a deck of their own go to it. */
+    var selectedDeckId by mutableStateOf<String?>(null)
+        private set
+
+    /** Deck lists show tick boxes, to delete several decks at once. */
+    var marking by mutableStateOf(false)
+        private set
+    var marked by mutableStateOf(setOf<String>())
+        private set
+
     /** Window focused / app in the foreground; only then does learning time count. */
     var foreground = true
 
@@ -175,6 +185,7 @@ class AppViewModel(
             prefixPending -> prefixPending = false
             capturingPrefix -> capturingPrefix = false
             deckPick != null -> deckPick = null
+            marking -> stopMarking()
             showRewardOnly -> showRewardOnly = false
             screen == Screen.EditCard -> cancelEditor()
             stack.size > 1 -> leave()
@@ -222,11 +233,7 @@ class AppViewModel(
         updateDeck(deck.copy(studyTags = all.filter { it in tags }))
     }
 
-    /** Every tag in the deck, the standard levels in their order first. */
-    fun tagsIn(deckId: String): List<String> {
-        val tags = cardsIn(deckId).flatMap { it.tags }.distinct()
-        return StarterKits.LEVELS.filter { it in tags } + tags.filter { it !in StarterKits.LEVELS }.sorted()
-    }
+    fun tagsIn(deckId: String): List<String> = cardsIn(deckId).flatMap { it.tags }.distinct().sorted()
 
     fun counts(deck: Deck): DeckCounts = Queue(deck, studyCards(deck), progress).counts
 
@@ -258,7 +265,7 @@ class AppViewModel(
     /**
      * Gives the collection the standard kits of this version, once: missing decks are added
      * (also ones deleted before, since the kits changed), decks already there get the new cards,
-     * and the cards they had (same answer and notes) keep their progress and take the new tags.
+     * and the cards they had (same answer, notes and voicing) keep their progress and take the new tags.
      */
     private fun installStandardKits() {
         if (settings.standardKits >= StarterKits.STANDARD_VERSION) return
@@ -271,14 +278,16 @@ class AppViewModel(
                 touched += id
                 continue
             }
-            val built = cards.associateBy { it.answer to it.notes }
-            val have = c.cards.filter { it.deckId == id }.map { it.answer to it.notes }.toSet()
-            val added = cards.filter { (it.answer to it.notes) !in have }
+            fun same(card: Card) = Triple(card.answer, card.notes, card.voicing)
+            val built = cards.associateBy(::same)
+            val have = c.cards.filter { it.deckId == id }.map(::same).toSet()
+            val added = cards.filter { same(it) !in have }
             cards.filter { it !in added }.forEach { deleteClipFiles(it) }
             c = c.copy(
-                decks = c.decks.map { if (it.id == id) it.copy(pool = deck.pool) else it },
+                // Flash-card twins were named "… (Karten)" up to 1.8; now each list says what it is.
+                decks = c.decks.map { if (it.id == id) it.copy(pool = deck.pool, name = if (it.name == deck.name + " (Karten)") deck.name else it.name) else it },
                 cards = c.cards.map { card ->
-                    val tags = built[card.answer to card.notes]?.tags
+                    val tags = built[same(card)]?.tags
                     if (card.deckId == id && tags != null) card.copy(tags = (card.tags + tags).distinct()) else card
                 } + added,
             )
@@ -288,11 +297,54 @@ class AppViewModel(
         saveCollection(c.copy(settings = c.settings.copy(standardKits = StarterKits.STANDARD_VERSION)))
     }
 
-    fun deleteDeck(deckId: String) {
-        val cards = cardsIn(deckId)
+    fun deleteDeck(deckId: String) = deleteDecks(setOf(deckId))
+
+    fun deleteDecks(ids: Set<String>) {
+        val cards = collection.cards.filter { it.deckId in ids }
         cards.forEach { deleteClipFiles(it) }
-        saveCollection(collection.copy(decks = collection.decks.filter { it.id != deckId }, cards = collection.cards.filter { it.deckId != deckId }))
+        saveCollection(collection.copy(decks = collection.decks.filter { it.id !in ids }, cards = collection.cards.filter { it.deckId !in ids }))
         saveProgress(progress.copy(cards = progress.cards - cards.map { it.id }.toSet()))
+        if (selectedDeckId in ids) selectedDeckId = null
+        marked = marked - ids
+    }
+
+    /** Every deck in the order they are numbered: the flash cards, then the multiple choice. */
+    fun numberedDecks(): List<Deck> = decks(DeckKind.CARDS) + decks(DeckKind.CHORDS)
+
+    /** 1 to 9 for prefix + digit; null for the decks after the ninth. */
+    fun deckNumber(deckId: String): Int? = (numberedDecks().indexOfFirst { it.id == deckId } + 1).takeIf { it in 1..9 }
+
+    fun toggleMark(deckId: String) {
+        marking = true
+        marked = if (deckId in marked) marked - deckId else marked + deckId
+    }
+
+    fun startMarking() {
+        marking = true
+    }
+
+    fun stopMarking() {
+        marking = false
+        marked = emptySet()
+    }
+
+    fun markAll(kind: DeckKind, on: Boolean) {
+        val ids = decks(kind).map { it.id }.toSet()
+        marked = if (on) marked + ids else marked - ids
+    }
+
+    /** Asks, then deletes every marked deck with its cards. */
+    fun deleteMarked() {
+        val decks = collection.decks.filter { it.id in marked }
+        if (decks.isEmpty()) return
+        val cards = collection.cards.count { it.deckId in marked }
+        val title = if (decks.size == 1) "„${decks[0].name}“ löschen?" else "${decks.size} Stapel löschen?"
+        val list = if (decks.size == 1) "" else decks.joinToString("\n", postfix = "\n\n") { "• " + it.name }
+        confirm = Confirm(title, list + "Alle $cards Karten und ihre Audiodateien werden entfernt.", "Löschen") {
+            deleteDecks(decks.map { it.id }.toSet())
+            stopMarking()
+            toast(if (decks.size == 1) "Stapel gelöscht" else "${decks.size} Stapel gelöscht")
+        }
     }
 
     // endregion
@@ -385,6 +437,7 @@ class AppViewModel(
             key = e.key.trim().ifEmpty { null },
             label = e.label.trim().ifEmpty { null },
             notes = e.notes.trim(),
+            voicing = e.voicing.trim(),
             tags = e.tags.split(Regex("\\s+")).filter { it.isNotBlank() },
             modified = now,
         )
@@ -1025,11 +1078,6 @@ class AppViewModel(
         val standard = kitsToLink
         kitsToLink = emptyList()
         for (id in standard) deck(id)?.folder?.let { linkFolderNow(id, it, quiet = true) } ?: linkKitFolder(id)
-        if (settings.kitFolderLinked) return
-        for (id in listOf(StarterKits.A_CHORDS_ID, StarterKits.A_CARDS_ID)) linkKitFolder(id)
-        if (collection.decks.any { it.id == StarterKits.A_CHORDS_ID || it.id == StarterKits.A_CARDS_ID }) {
-            saveCollection(collection.copy(settings = settings.copy(kitFolderLinked = true)))
-        }
     }
 
     private suspend fun linkKitFolder(deckId: String) {
@@ -1298,7 +1346,7 @@ class AppViewModel(
             return
         }
         if (action.kind.needsDeck) {
-            val deckId = deckOf(action)?.id ?: currentDeckId()
+            val deckId = deckOf(action)?.id ?: actionDeckId()
             if (deckId == null) deckPick = DeckPick(action.kind) else runWithDeck(action.kind, deckId)
             return
         }
@@ -1306,6 +1354,8 @@ class AppViewModel(
             ActionKind.OPEN_CARDS -> jumpTo(Screen.Decks(DeckKind.CARDS))
             ActionKind.OPEN_CHORDS -> jumpTo(Screen.Decks(DeckKind.CHORDS))
             ActionKind.SETTINGS -> jumpTo(Screen.Settings)
+            ActionKind.CONFIG -> actionDeckId()?.let { deckDialog = DeckDialog.Options(it) } ?: jumpTo(Screen.Settings)
+            ActionKind.HELP -> if (screen != Screen.Help) open(Screen.Help)
             ActionKind.HOME -> home()
             ActionKind.REWARD -> {
                 home()
@@ -1313,6 +1363,26 @@ class AppViewModel(
             }
             else -> Unit
         }
+    }
+
+    /** The open deck, or in a deck list the one picked by number. */
+    private fun actionDeckId(): String? {
+        currentDeckId()?.let { return it }
+        val list = screen as? Screen.Decks ?: return null
+        return selectedDeckId?.takeIf { deck(it)?.kind == list.kind }
+    }
+
+    /** Prefix + digit: shows the deck list with deck [number] picked; with [mark] ticks it instead. */
+    fun pickDeckNumber(number: Int, mark: Boolean = false) {
+        if (recording != null || audioEditor != null || busy != null) return
+        if (screen == Screen.EditCard) {
+            toast("Erst die Karte speichern oder verwerfen")
+            return
+        }
+        val deck = numberedDecks().getOrNull(number - 1) ?: return toast("Es gibt keinen Stapel $number")
+        if (mark) toggleMark(deck.id)
+        selectedDeckId = deck.id
+        jumpTo(Screen.Decks(deck.kind))
     }
 
     /** The deck picked for an action that asked for one. */
@@ -1392,7 +1462,12 @@ class AppViewModel(
         if (prefixPending) {
             prefixPending = false
             if (stroke.key == "Escape" || stroke == settings.prefix) return true
-            val key = typed?.takeIf { it.isLetterOrDigit() }?.uppercaseChar() ?: stroke.key.singleOrNull() ?: return true
+            // Shift + digit types "!" or "\"", so the digit comes from the key itself.
+            stroke.key.singleOrNull()?.digitToIntOrNull()?.let {
+                pickDeckNumber(it, mark = stroke.shift)
+                return true
+            }
+            val key = typed?.takeIf { it.isLetter() || it == '?' }?.uppercaseChar() ?: stroke.key.singleOrNull() ?: return true
             runShortcut(key)
             return true
         }

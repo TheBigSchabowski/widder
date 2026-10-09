@@ -139,9 +139,13 @@ private fun strokeOf(event: KeyEvent): KeyStroke? {
 private fun handleKey(vm: AppViewModel, event: KeyEvent): Boolean {
     if (event.type != KeyEventType.KeyDown || event.key in modifierKeys) return false
     val stroke = strokeOf(event)
+    val typed = event.utf16CodePoint.takeIf { it in 1..0xFFFE }?.toChar()
     if (stroke != null) {
-        val typed = event.utf16CodePoint.takeIf { it in 1..0xFFFE }?.toChar()
         if (vm.onShortcutKey(stroke, typed)) return true
+    } else if (vm.prefixPending && typed == '?') {
+        // "?" lies on ⇧ß or ⇧/ depending on the layout: only the character says what it is.
+        vm.runShortcut('?')
+        return true
     } else if (vm.prefixPending || vm.capturingPrefix) {
         // Arrows, Tab and the like neither pick a shortcut nor become the prefix.
         vm.closePrefix()
