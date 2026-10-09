@@ -49,7 +49,8 @@ werden sie zur Sexte, A5 zur Quarte. Verstanden wird auch `A-Durterz` / `A-Mollt
 Ab 1.9.0 bekommen bestehende Sammlungen die neuen Startkits einmalig dazu; die alten (A-Akkorde,
 Akkordtypen, Akkordfolgen, Stufen und Modi) bleiben, bis man sie löscht.
 
-**Mehrere Stapel löschen:** In der Stapelliste „Markieren“, Stapel antippen (oder „Alle“), dann
+**Mehrere Stapel löschen:** In der Stapelliste „Markieren“, Stapel antippen (oder „Alle“; am
+Computer geht auch ⇧ + Klick auf einen Stapel, ohne vorher „Markieren“ zu drücken), dann
 „Löschen“ – Widder fragt einmal nach und zeigt, welche Stapel gehen.
 
 **Tags:** Hat ein Stapel getaggte Karten (Karten-Editor → Schlagwörter), stehen die Tags unter ihm

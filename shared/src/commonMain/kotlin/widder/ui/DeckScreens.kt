@@ -36,6 +36,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isShiftPressed
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -138,7 +142,8 @@ private fun DeckRow(vm: AppViewModel, deck: Deck, color: Color) {
             marked -> Modifier.border(2.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(18.dp))
             picked -> Modifier.border(2.dp, color, RoundedCornerShape(18.dp))
             else -> Modifier
-        }.then(if (vm.marking) Modifier.clip(RoundedCornerShape(18.dp)).clickable { vm.toggleMark(deck.id) } else Modifier),
+        }.then(if (vm.marking) Modifier.clip(RoundedCornerShape(18.dp)).clickable { vm.toggleMark(deck.id) } else Modifier)
+            .shiftClickMarks(vm, deck.id),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (vm.marking) {
@@ -326,5 +331,20 @@ fun ChordChips(vm: AppViewModel, tokens: List<Token>, key: widder.music.Key?, sh
             )
         }
         tokens.forEach { TokenChip(it, vm.chordLabel(it, key, deckId), large) }
+    }
+}
+
+/**
+ * ⇧ + click ticks the deck, also outside marking mode, like in Finder. The click is taken
+ * before the buttons see it, so it does not also start learning.
+ */
+private fun Modifier.shiftClickMarks(vm: AppViewModel, deckId: String): Modifier = pointerInput(deckId) {
+    awaitPointerEventScope {
+        while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            if (event.type != PointerEventType.Press || !event.keyboardModifiers.isShiftPressed) continue
+            event.changes.forEach { it.consume() }
+            vm.toggleMark(deckId)
+        }
     }
 }

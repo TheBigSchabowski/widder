@@ -37,7 +37,7 @@ fun main() {
         override val keyboard = true
     }
 
-    fun render(name: String, keys: Boolean = false, setup: (AppViewModel) -> Unit) {
+    fun render(name: String, keys: Boolean = false, interact: (ImageComposeScene) -> Unit = {}, setup: (AppViewModel) -> Unit) {
         for ((label, size) in sizes) {
             val dir = Files.createTempDirectory("widder").toFile()
             val vm = AppViewModel(
@@ -48,6 +48,8 @@ fun main() {
             val (w, h) = size
             ImageComposeScene(w * 2, h * 2, Density(2f)) { App(vm) }.use { scene ->
                 repeat(5) { scene.render(it * 20_000_000L) }
+                interact(scene)
+                repeat(5) { scene.render(100_000_000L + it * 20_000_000L) }
                 val png = scene.render(200_000_000L).encodeToData(EncodedImageFormat.PNG)!!.bytes
                 File(out, "$name-$label.png").writeBytes(png)
             }
@@ -184,6 +186,13 @@ fun main() {
         vm.toggleMark(vm.numberedDecks()[3].id)
         vm.deleteMarked()
     }
+    // ⇧ + click on the second deck ticks it without "Markieren", and does not start learning.
+    render("stapel-shift-klick", keys = true, interact = { scene ->
+        val at = androidx.compose.ui.geometry.Offset(1100f, 560f)
+        val shift = androidx.compose.ui.input.pointer.PointerKeyboardModifiers(isShiftPressed = true)
+        scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, at, keyboardModifiers = shift)
+        scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, at, keyboardModifiers = shift)
+    }) { it.open(Screen.Decks(DeckKind.CARDS)) }
     render("hilfe", keys = true) { it.open(Screen.Help) }
     render("hilfe-handy") { it.open(Screen.Help) }
     render("kacheln") { it.open(Screen.Tiles) }
