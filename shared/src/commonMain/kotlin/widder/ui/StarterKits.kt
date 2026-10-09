@@ -41,9 +41,9 @@ object StarterKits {
                 "Erst der tiefe, dann der hohe Ton, von der kleinen Sekunde bis zur Quintdezime", "Startkit Intervalle nacheinander",
             ) { intervals(it, together = false) },
             Kit(
-                CHORDS_ID, DeckKind.CHORDS, "Startkit: Akkordarten",
+                CHORDS_ID, DeckKind.CHORDS, "Astra Deck",
                 CHORDS.joinToString(" · ") + " – in verschiedenen Umkehrungen; welche erklingt, zeigt nur der Editor",
-                "Startkit Akkordarten", ::chords,
+                "Astra Deck", ::chords,
             ),
         )
         // Every one also as flash cards.
@@ -134,7 +134,7 @@ object StarterKits {
         val now = currentTimeMillis()
         // The wrong tiles come from the kit itself; numerals would only repeat the names.
         val deck = Deck(
-            CHORDS_ID, "Startkit: Akkordarten", DeckKind.CHORDS,
+            CHORDS_ID, "Astra Deck", DeckKind.CHORDS,
             distractors = 5, pool = CHORDS, numerals = NumeralMode.OFF, created = now,
         )
         val voicings = CHORDS.flatMap { name ->

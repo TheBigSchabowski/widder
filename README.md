@@ -39,9 +39,9 @@ Ordner; ein gelöschtes lässt sich in der Stapelliste wieder „Hinzufügen“)
 |---|---|
 | Intervalle gleichzeitig | alle 24 Intervalle von der kleinen Sekunde bis zur Quintdezime, beide Töne zusammen |
 | Intervalle nacheinander | dieselben, erst der tiefe, dann der hohe Ton |
-| Akkordarten | Amaj, Amin, Amaj7, A7, Amin7, Amaj(add9), Amin(add9), Adim, A5, Amaj(no5), Amin(no5), A-Oktave – in Grundstellung und allen Umkehrungen (34 Karten) |
+| Astra Deck (Akkordarten) | Amaj, Amin, Amaj7, A7, Amin7, Amaj(add9), Amin(add9), Adim, A5, Amaj(no5), Amin(no5), A-Oktave – in Grundstellung und allen Umkehrungen (34 Karten) |
 
-Bei den Akkordarten ist die Lösung immer nur der Akkord („Amaj7“, nicht „Amaj7/Cis“). Welche
+Im Astra Deck ist die Lösung immer nur der Akkord („Amaj7“, nicht „Amaj7/Cis“). Welche
 Umkehrung erklingt, zeigt nur der Karten-Editor („Was das Audio spielt“), nie das Lernen.
 `Amaj(no5)` und `Amin(no5)` sind die Terz-Zweiklänge zu Dur und Moll (A–Cis, A–C); umgekehrt
 werden sie zur Sexte, A5 zur Quarte. Verstanden wird auch `A-Durterz` / `A-Mollterz`.
@@ -85,8 +85,8 @@ per „Neu einlesen“. `/` ist in Dateinamen verboten; `Am∕C.mid` (mit dem Di
 wird als `Am/C` gelesen.
 
 **Startkits:** Auf dem Mac liegen die Dateien automatisch in
-`~/Documents/Widder/Startkit Akkordarten` usw., unter Linux im Dokumente-Ordner des Benutzers
-(z. B. `~/Dokumente/Widder/Startkit Akkordarten`). Auf Android „Ordner“ tippen und einen Ordner wählen
+`~/Documents/Widder/Astra Deck` usw., unter Linux im Dokumente-Ordner des Benutzers
+(z. B. `~/Dokumente/Widder/Astra Deck`). Auf Android „Ordner“ tippen und einen Ordner wählen
 (am besten im Dialog einen neuen anlegen, z. B. `Documents/Widder Startkit`) – Android lässt
 Apps nur in Ordner schreiben, die man selbst ausgesucht hat.
 
