@@ -7,6 +7,7 @@ import widder.music.Distractors
 import widder.music.Harmony
 import widder.music.Interval
 import widder.music.Key
+import widder.music.Quality
 import widder.music.Midi
 import widder.music.MidiAnalysis
 import widder.music.Notation
@@ -68,8 +69,12 @@ class IntervalTest {
     @Test
     fun kitsHaveEveryIntervalChordTypeAndDegree() {
         assertEquals(24, (1..24).map { Interval.name(it) }.toSet().size)
-        val types = StarterKits.CHORD_TYPES.map { Chord.parse(it)!!.quality.name }
-        assertEquals(listOf("MAJOR", "MAJ7", "MINOR", "MINOR7", "ADD9", "MINOR_ADD9"), types)
+        // Every chord type the app knows, each once.
+        val types = StarterKits.CHORD_TYPES.map { Chord.parse(it)!!.quality }
+        assertEquals(Quality.entries.toSet(), types.toSet())
+        assertEquals(types.size, types.toSet().size)
+        // The names the kit writes read back the same.
+        for (q in Quality.entries) assertEquals(q, Chord.parse(Chord(0, q).name())?.quality, q.name)
         val c = Key.parse("C")!!
         for (german in listOf(false, true)) {
             val numerals = StarterKits.DEGREES.map { Harmony.numeral(Chord.parse(it, german)!!, c) }

@@ -2,6 +2,8 @@ package widder.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,11 +100,13 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
     var key by remember { mutableStateOf(deck.key ?: "") }
     var numerals by remember { mutableStateOf(deck.numerals) }
     var shuffle by remember { mutableStateOf(deck.shuffle) }
+    val tags = remember(deckId) { vm.tagsIn(deckId) }
+    var studyTags by remember { mutableStateOf(deck.studyTags.filter { it in tags }) }
     AlertDialog(
         onDismissRequest = { vm.deckDialog = null },
         title = { Text("Stapel-Optionen") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(newPerDay, { newPerDay = it.filter(Char::isDigit).take(4) }, Modifier.weight(1f), label = { Text("Neue / Tag") }, singleLine = true)
@@ -124,6 +128,10 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
                         widder.core.NumeralMode.ONLY -> "nur I"
                     }
                 }) { numerals = it }
+                if (tags.isNotEmpty()) {
+                    Text("Nur Karten mit diesen Tags lernen", style = MaterialTheme.typography.bodyMedium)
+                    TagChoices(tags, studyTags) { studyTags = it }
+                }
                 SwitchRow(
                     "Mischen",
                     "Jedes Mal eine neue Reihenfolge, damit du die Klänge lernst und nicht, was nach was kommt",
@@ -159,12 +167,27 @@ private fun DeckOptionsDialog(vm: AppViewModel, deckId: String) {
                         key = key.trim().ifEmpty { null },
                         numerals = numerals,
                         shuffle = shuffle,
+                        studyTags = studyTags,
                     ),
                 )
             }) { Text("Speichern") }
         },
         dismissButton = { TextButton({ vm.deckDialog = null }) { Text("Abbrechen") } },
     )
+}
+
+/** "Alle" or any number of tags; a card counts when it has one of them. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TagChoices(tags: List<String>, selected: List<String>, onChange: (List<String>) -> Unit) {
+    val color = MaterialTheme.colorScheme.primary
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip("Alle", color, filled = selected.isEmpty(), modifier = Modifier.clickable { onChange(emptyList()) })
+        for (tag in tags) {
+            val on = tag in selected
+            Chip(tag, color, filled = on, modifier = Modifier.clickable { onChange(if (on) selected - tag else tags.filter { it in selected || it == tag }) })
+        }
+    }
 }
 
 /** Which folder the deck mirrors, and what can be done with it. */

@@ -23,6 +23,8 @@ data class Deck(
     val numerals: NumeralMode? = null,
     /** New cards and reviews in a new mixed order every session, not in the order they were made. */
     val shuffle: Boolean = true,
+    /** Only cards with one of these tags are learned, e.g. "Basis"; empty = all cards. */
+    val studyTags: List<String> = emptyList(),
     /** A folder this deck mirrors (see FolderAccess); every audio/MIDI file in it is a card. */
     val folder: String? = null,
     val created: Long = 0,
@@ -123,6 +125,8 @@ data class Settings(
     val numerals: NumeralMode = NumeralMode.WITH_NAME,
     /** The starter kits were given their folder once; unlinking them afterwards sticks. */
     val kitFolderLinked: Boolean = false,
+    /** Which version of the standard kits this collection has received (see StarterKits.STANDARD_VERSION). */
+    val standardKits: Int = 0,
     val reward: RewardSettings = RewardSettings(),
     /** The fields of the gesture grid, row by row; null = the standard ones. May hold more than the grid shows. */
     val tiles: List<GestureTile>? = null,

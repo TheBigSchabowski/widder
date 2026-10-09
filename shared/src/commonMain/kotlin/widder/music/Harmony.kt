@@ -112,6 +112,8 @@ object Harmony {
             Quality.MINOR7 -> "7"
             Quality.MINOR_ADD9 -> "add9"
             Quality.MINOR9 -> "9"
+            Quality.MINOR_ADD4 -> "add4"
+            Quality.MINOR11 -> "11"
             Quality.OCTAVE -> "-Okt"
             else -> chord.quality.symbol
         }
