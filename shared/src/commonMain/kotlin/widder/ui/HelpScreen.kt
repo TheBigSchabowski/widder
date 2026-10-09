@@ -46,7 +46,7 @@ fun HelpScreen(vm: AppViewModel) {
                     )
                     Mode(
                         "Markieren",
-                        "In den Stapellisten „Markieren“, Stapel antippen" + (prefix?.let { " (oder $it ⇧ + Nummer)" } ?: "") +
+                        "In den Stapellisten „Markieren“, Stapel antippen" + (prefix?.let { " (oder ⇧ + Klick, $it ⇧ + Nummer)" } ?: "") +
                             ", dann „Löschen“ – mehrere auf einmal.",
                         MaterialTheme.colorScheme.error,
                     )
