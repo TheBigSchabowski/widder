@@ -63,7 +63,7 @@ class FolderTest {
         override fun pickFiles(kind: PickKind, onResult: (List<IncomingFile>) -> Unit) = Unit
         override val folders: FolderAccess get() = this@FolderTest.folders
     }
-    private val chordsFolder = "/widder/Startkit Akkordarten"
+    private val chordsFolder = "/widder/Astra Deck"
     private val cardsKit = StarterKits.CHORDS_ID + StarterKits.CARDS_SUFFIX
 
     private fun vm(store: Store = Store(MemoryStore())) = AppViewModel(store, SilentAudio.system, hooks, live = false, main = Dispatchers.Unconfined, work = Dispatchers.Unconfined)
@@ -82,7 +82,7 @@ class FolderTest {
         assertEquals(chords.map { Triple(it.answer, it.notes, it.voicing) }, twin.map { Triple(it.answer, it.notes, it.voicing) })
         assertTrue(twin.all { it.front == "Welcher Akkord ist das?" })
         assertEquals(DeckKind.CARDS, vm.deck(cardsKit)!!.kind)
-        assertEquals("Startkit: Akkordarten", vm.deck(cardsKit)!!.name)
+        assertEquals("Astra Deck", vm.deck(cardsKit)!!.name)
         // One file per inversion, even though three cards are called Amin; both decks share it.
         assertEquals(chords.size, folders.list(chordsFolder)!!.size)
         assertEquals(chords.map { it.source }, twin.map { it.source })
@@ -270,7 +270,7 @@ class FolderTest {
         assertNotEquals(oldAmin, cards.first { it.source == "Amin.mid" }.frontAudio!!.file)
         assertEquals(1, cards.count { it.answer == listOf("A5") })
         assertEquals(listOf("Dm", "G", "C"), cards.first { it.source == "Dm G C.mid" }.answer)
-        assertEquals("Startkit: Akkordarten: 1 neu, 2 ersetzt, 1 entfernt", vm.message)
+        assertEquals("Astra Deck: 1 neu, 2 ersetzt, 1 entfernt", vm.message)
     }
 
     @Test
