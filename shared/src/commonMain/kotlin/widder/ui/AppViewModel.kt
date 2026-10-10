@@ -1319,17 +1319,57 @@ class AppViewModel(
 
     // region tiles and actions
 
-    /** Exactly one field per grid cell, row by row. */
-    val tiles: List<GestureTile>
-        get() {
-            val stored = settings.tiles ?: Shortcuts.defaultTiles
-            return List(settings.tileColumns * settings.tileRows) { stored.getOrNull(it) ?: GestureTile() }
-        }
+    /** Exactly one field per grid cell, row by row: the learning grid ([learn]) or the other one. */
+    fun tilesOf(learn: Boolean): List<GestureTile> {
+        val stored = (if (learn) settings.learnTiles ?: Shortcuts.defaultLearnTiles else settings.tiles ?: Shortcuts.defaultTiles)
+        return List(columnsOf(learn) * rowsOf(learn)) { stored.getOrNull(it) ?: GestureTile() }
+    }
+
+    fun columnsOf(learn: Boolean): Int = if (learn) 1 else settings.tileColumns
+    fun rowsOf(learn: Boolean): Int = if (learn) settings.learnTileRows else settings.tileRows
+
+    /** The editor was opened from a card being learned; saving leads back to it. */
+    private val editingFromStudy: Boolean get() = screen == Screen.EditCard && stack.getOrNull(stack.size - 2)?.isStudy == true
+
+    /** Learning, or editing from there: the learning grid listens instead of the other one. */
+    val learnGrid: Boolean get() = settings.learnTilesOn && (screen.isStudy || editingFromStudy)
+
+    /** The fields that listen now. */
+    val tiles: List<GestureTile> get() = tilesOf(learnGrid)
+    val gridColumns: Int get() = columnsOf(learnGrid)
+    val gridRows: Int get() = rowsOf(learnGrid)
+
+    /** The MIDI clip of a card, which the keyboard shows. */
+    fun midiClip(card: Card): Clip? = listOfNotNull(card.frontAudio, card.backAudio).firstOrNull { it.isMidi }
+
+    /** The card being learned on screen. */
+    private fun studyCard(): Card? = when (screen) {
+        is Screen.Review -> review?.card
+        is Screen.Train -> training?.card
+        else -> null
+    }
+
+    /** The MIDI clip whose keyboard can show right now: the answer is out. */
+    private fun keyboardClip(): Clip? = when (screen) {
+        is Screen.Review -> review?.takeIf { it.showAnswer }?.card?.let(::midiClip)
+        is Screen.Train -> training?.takeIf { it.round?.checked == true }?.card?.let(::midiClip)
+        else -> null
+    }
+
+    /** Whether [action] can do something here; elsewhere its gesture lets the taps through. */
+    fun canRun(action: Action): Boolean = when (action.kind) {
+        ActionKind.NONE -> false
+        ActionKind.EDIT_CARD -> studyCard() != null
+        ActionKind.KEYBOARD -> keyboardClip() != null
+        ActionKind.BACK_TO_CARD -> editingFromStudy
+        else -> true
+    }
 
     /** Whether the grid takes double taps and long presses right now. */
     fun tilesActive(): Boolean {
         if (recording != null || audioEditor != null || busy != null || prefixPending || capturingPrefix || showRewardOnly) return false
         if (importPreview != null || pendingImport != null || deckPick != null) return false
+        if (learnGrid) return true
         return when (settings.tileScope) {
             TileScope.OFF -> false
             TileScope.HOME -> screen == Screen.Home
@@ -1342,14 +1382,14 @@ class AppViewModel(
     fun onTileGesture(index: Int, long: Boolean): Boolean {
         val tile = tiles.getOrNull(index) ?: return false
         val action = if (long) tile.longPress else tile.doubleTap
-        if (action.isNone || !tilesActive()) return false
+        if (!canRun(action) || !tilesActive()) return false
         tileFlash = TileFlash(index, describe(action), (tileFlash?.serial ?: 0) + 1)
         run(action)
         return true
     }
 
     fun hasTileAction(index: Int, long: Boolean): Boolean =
-        tiles.getOrNull(index)?.let { if (long) !it.longPress.isNone else !it.doubleTap.isNone } == true
+        tiles.getOrNull(index)?.let { canRun(if (long) it.longPress else it.doubleTap) } == true
 
     fun clearTileFlash(serial: Int) {
         if (tileFlash?.serial == serial) tileFlash = null
@@ -1367,6 +1407,15 @@ class AppViewModel(
     fun run(action: Action) {
         if (action.isNone) return
         if (recording != null || audioEditor != null || busy != null) return
+        when (action.kind) {
+            ActionKind.EDIT_CARD -> return studyCard()?.let { editCard(it) } ?: toast("Öffnet beim Lernen die Karte im Editor")
+            ActionKind.KEYBOARD -> {
+                keyboardOpen = !keyboardOpen
+                return
+            }
+            ActionKind.BACK_TO_CARD -> return if (editingFromStudy) saveEditor() else toast("Nur im Editor, der beim Lernen geöffnet wurde")
+            else -> Unit
+        }
         if (screen == Screen.EditCard) {
             toast("Erst die Karte speichern oder verwerfen")
             return
@@ -1448,14 +1497,16 @@ class AppViewModel(
         if (target != Screen.Home) open(target)
     }
 
-    fun saveTile(index: Int, tile: GestureTile) {
-        val stored = (settings.tiles ?: Shortcuts.defaultTiles).toMutableList()
+    fun saveTile(index: Int, tile: GestureTile, learn: Boolean = false) {
+        val stored = (if (learn) settings.learnTiles ?: Shortcuts.defaultLearnTiles else settings.tiles ?: Shortcuts.defaultTiles).toMutableList()
         while (stored.size <= index) stored += GestureTile()
         stored[index] = tile
-        updateSettings { it.copy(tiles = stored) }
+        updateSettings { if (learn) it.copy(learnTiles = stored) else it.copy(tiles = stored) }
     }
 
-    fun resetTiles() = updateSettings { it.copy(tiles = null, tileColumns = 2, tileRows = 2) }
+    fun resetTiles(learn: Boolean = false) = updateSettings {
+        if (learn) it.copy(learnTiles = null, learnTileRows = 3, learnTilesOn = true) else it.copy(tiles = null, tileColumns = 2, tileRows = 2)
+    }
 
     /** Replaces the shortcut on [old] (null = adds one); a key already taken is taken over. */
     fun saveShortcut(old: Char?, shortcut: Shortcut) {
@@ -1538,6 +1589,7 @@ class AppViewModel(
                 KeyCommand.UNDO -> undoReview()
                 KeyCommand.REPLAY -> replay()
                 KeyCommand.EDIT -> session.card?.let { editCard(it) }
+                KeyCommand.KEYBOARD -> if (keyboardClip() != null) keyboardOpen = !keyboardOpen else return false
                 KeyCommand.SHUFFLE -> shuffle()
                 else -> return false
             }
@@ -1554,6 +1606,7 @@ class AppViewModel(
                 KeyCommand.THREE -> if (round.checked) gradeRound(Grade.GOOD) else return false
                 KeyCommand.FOUR -> if (round.checked) gradeRound(Grade.EASY) else return false
                 KeyCommand.EDIT -> session.card?.let { openAudioEditor(ClipTarget.StoredCard(it.id, back = false)) }
+                KeyCommand.KEYBOARD -> if (keyboardClip() != null) keyboardOpen = !keyboardOpen else return false
                 KeyCommand.SHUFFLE -> shuffle()
                 else -> return false
             }

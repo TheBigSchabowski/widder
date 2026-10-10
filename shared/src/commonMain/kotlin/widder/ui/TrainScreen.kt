@@ -190,7 +190,7 @@ private fun Round(vm: AppViewModel, session: TrainSession, round: ChordRound) {
                         round.answer.forEach { Chip(vm.chordLabel(it, key, session.deckId), Palette.good) }
                     }
                 }
-                val midi = session.card?.frontAudio?.takeIf { it.isMidi }
+                val midi = session.card?.let(vm::midiClip)
                 if (round.checked && midi != null) {
                     Spacer(Modifier.height(10.dp))
                     MidiKeyboard(vm, midi, "train-keys")

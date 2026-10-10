@@ -133,6 +133,10 @@ data class Settings(
     val tileColumns: Int = 2,
     val tileRows: Int = 2,
     val tileScope: TileScope = TileScope.HOME,
+    /** The grid while learning and in the editor opened from there; null = the standard ones. */
+    val learnTiles: List<GestureTile>? = null,
+    val learnTileRows: Int = 3,
+    val learnTilesOn: Boolean = true,
     /** Outlines and names of the fields drawn faintly over the screen. */
     val showTiles: Boolean = false,
     /** Desktop: the prefix before a shortcut letter; null = shortcuts off. */

@@ -58,7 +58,7 @@ fun Modifier.tileGestures(vm: AppViewModel): Modifier = pointerInput(vm) {
         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         if (!vm.tilesActive()) return@awaitEachGesture
         if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
-        val field = tileIndexAt(down.position, size, vm.settings.tileColumns, vm.settings.tileRows)
+        val field = tileIndexAt(down.position, size, vm.gridColumns, vm.gridRows)
 
         val sinceTap = down.uptimeMillis - lastTapUp
         val secondTap = field == lastTapField &&
@@ -116,8 +116,8 @@ fun TileLayer(vm: AppViewModel) {
     val flash = vm.tileFlash
     val outlines = vm.settings.showTiles && vm.tilesActive()
     if (flash == null && !outlines) return
-    val columns = vm.settings.tileColumns
-    val rows = vm.settings.tileRows
+    val columns = vm.gridColumns
+    val rows = vm.gridRows
     val tiles = vm.tiles
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val w = maxWidth / columns
@@ -125,7 +125,8 @@ fun TileLayer(vm: AppViewModel) {
         fun Modifier.cell(index: Int) = offset(w * (index % columns), h * (index / columns)).size(w, h)
         if (outlines) {
             tiles.forEachIndexed { i, tile ->
-                if (tile.isEmpty) return@forEachIndexed
+                // Only what can do something here, e.g. no "back to the card" while learning.
+                if (!vm.canRun(tile.doubleTap) && !vm.canRun(tile.longPress)) return@forEachIndexed
                 val color = tileColor(tile.color)
                 Box(Modifier.cell(i).padding(4.dp).border(1.5.dp, color.copy(alpha = 0.35f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.BottomEnd) {
                     Text(

@@ -213,6 +213,22 @@ fun main() {
         vm.open(Screen.Tiles)
     }
     render("kachel-bearbeiten") { vm -> vm.open(Screen.EditTile(3)) }
+    render("kacheln-lernen", interact = { scene ->
+        repeat(30) {
+            scene.sendPointerEvent(
+                androidx.compose.ui.input.pointer.PointerEventType.Scroll,
+                androidx.compose.ui.geometry.Offset(300f, 600f),
+                scrollDelta = androidx.compose.ui.geometry.Offset(0f, 10f),
+            )
+        }
+    }) { it.open(Screen.Tiles) }
+    render("lernen-felder") { vm ->
+        vm.updateSettings { it.copy(showTiles = true) }
+        vm.startReview(cardsKit)
+        vm.review!!.card = vm.cardsIn(cardsKit).first { it.voicing.startsWith("Amaj7/Cis") }
+        vm.showAnswer()
+        vm.onTileGesture(1, long = false)
+    }
     render("home-felder") { vm -> vm.updateSettings { it.copy(showTiles = true) } }
     render("home-geste") { vm ->
         vm.saveTile(1, widder.core.GestureTile("Bild", widder.core.TileColor.PURPLE, longPress = widder.core.Action(widder.core.ActionKind.SETTINGS)))
