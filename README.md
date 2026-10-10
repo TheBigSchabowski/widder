@@ -152,6 +152,9 @@ Aktion für doppelt Tippen und Halten:
 | Dateien importieren | Dateiauswahl, direkt in den Stapel |
 | Konfiguration | die Stapel-Optionen des gewählten oder offenen Stapels, sonst die Einstellungen |
 | Bild ansehen, Einstellungen, Startbildschirm, Modi & Tasten | |
+| Karte bearbeiten | beim Lernen: die Karte auf dem Bildschirm im Editor |
+| Klaviatur | Klaviatur unter der MIDI-Lösung auf-/zuklappen (erst mit der Antwort) |
+| Speichern → zurück zur Karte | im Editor, der beim Lernen geöffnet wurde: speichert und zeigt wieder die Karte |
 
 Bei Aktionen mit Stapel legt man pro Geste einen festen Stapel fest – oder nicht: Dann nimmt die
 Aktion den gerade offenen Stapel und fragt sonst nach. Die Kacheln hören nur auf dem
@@ -159,6 +162,13 @@ Startbildschirm, überall (außer im Karten-Editor und bei Multiple Choice, die 
 brauchen) oder gar nicht. Eine ausgelöste Kachel leuchtet kurz mit ihrer Aktion auf; „Felder
 andeuten“ zeigt das Raster dauerhaft. Standard: oben links Halten = Lernen, oben rechts Halten =
 Neue Karte, unten links Halten = Flash Cards, unten rechts Halten = Aufnehmen → Karte.
+
+**Beim Lernen** (Abfrage, Training und der Editor, der von dort geöffnet wird) gilt ein eigenes
+Raster mit einer Spalte, standardmäßig drei Reihen: **oben doppelt** = Karte bearbeiten, **Mitte
+doppelt** = Klaviatur, **unten doppelt** = speichern und zurück zur Karte. Ein Feld greift nur, wo
+seine Aktion gerade etwas tun kann (z. B. die Klaviatur erst mit der Antwort, „zurück“ nur im
+Editor) – sonst geht das Tippen wie immer durch. Abschaltbar und frei belegbar unter Kacheln →
+„Beim Lernen“. Am Desktop klappt **K** die Klaviatur auf und zu.
 
 **Tastenkürzel (Mac und Linux)** wie in tmux: erst den Prefix **⌃B** (Linux: Strg+B), loslassen, dann eine Taste. Nach dem
 Prefix erscheint unten eine Übersicht aller Tasten (auch anklickbar). Buchstaben sind frei belegbar (Standard: F Flash Cards,

@@ -77,12 +77,44 @@ fun TilesScreen(vm: AppViewModel) {
                     SwitchRow("Felder andeuten", "Zarte Umrisse und Namen über dem Bildschirm", st.showTiles) { on -> vm.updateSettings { it.copy(showTiles = on) } }
                 }
                 SectionTitle("Felder – zum Bearbeiten antippen")
-                TileGridPreview(vm)
+                TileGridPreview(vm, learn = false)
                 Row(Modifier.padding(top = 12.dp)) {
                     Spacer(Modifier.weight(1f))
                     SmallButton("Standard wiederherstellen", {
                         vm.confirm = Confirm("Kacheln zurücksetzen?", "Das Raster wird wieder 2 × 2 mit den Standard-Aktionen.", "Zurücksetzen") { vm.resetTiles() }
                     }, color = MaterialTheme.colorScheme.error)
+                }
+
+                SectionTitle("Beim Lernen")
+                Panel {
+                    Text(
+                        "Beim Lernen und im Editor, der von dort geöffnet wird, gilt ein eigenes Raster: eine Spalte, von oben nach unten. " +
+                            "Ein Feld greift nur, wo seine Aktion etwas tun kann – sonst geht das Tippen wie immer durch.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    SwitchRow("Eigenes Raster beim Lernen", "Aus: dort gilt das Raster oben, wenn es überall aktiv ist", st.learnTilesOn) { on ->
+                        vm.updateSettings { it.copy(learnTilesOn = on) }
+                    }
+                    if (st.learnTilesOn) {
+                        Text("Reihen", Modifier.padding(top = 12.dp, bottom = 6.dp), style = MaterialTheme.typography.bodyMedium)
+                        Choices(listOf(1, 2, 3, 4), st.learnTileRows, { "$it" }) { n -> vm.updateSettings { it.copy(learnTileRows = n) } }
+                    }
+                }
+                if (st.learnTilesOn) {
+                    Spacer(Modifier.height(12.dp))
+                    TileGridPreview(vm, learn = true)
+                    Row(Modifier.padding(top = 12.dp)) {
+                        Spacer(Modifier.weight(1f))
+                        SmallButton("Standard wiederherstellen", {
+                            vm.confirm = Confirm(
+                                "Lern-Kacheln zurücksetzen?",
+                                "Oben Karte bearbeiten, Mitte Klaviatur, unten speichern und zurück zur Karte.",
+                                "Zurücksetzen",
+                            ) { vm.resetTiles(learn = true) }
+                        }, color = MaterialTheme.colorScheme.error)
+                    }
                 }
                 Spacer(Modifier.height(40.dp))
             }
@@ -92,20 +124,20 @@ fun TilesScreen(vm: AppViewModel) {
 
 /** The grid as on the screen, a little smaller; each field says what its gestures do. */
 @Composable
-private fun TileGridPreview(vm: AppViewModel) {
-    val columns = vm.settings.tileColumns
-    val tiles = vm.tiles
+private fun TileGridPreview(vm: AppViewModel, learn: Boolean) {
+    val columns = vm.columnsOf(learn)
+    val tiles = vm.tilesOf(learn)
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(22.dp)).padding(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         for (row in tiles.indices.chunked(columns)) {
-            Row(Modifier.height(if (vm.settings.tileRows > 2) 120.dp else 150.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.height(if (learn) 96.dp else if (vm.settings.tileRows > 2) 120.dp else 150.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (i in row) {
                     val tile = tiles[i]
                     val color = tileColor(tile.color)
                     Surface(
-                        Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(16.dp)).clickable { vm.open(Screen.EditTile(i)) },
+                        Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(16.dp)).clickable { vm.open(Screen.EditTile(i, learn)) },
                         shape = RoundedCornerShape(16.dp),
                         color = if (tile.isEmpty) MaterialTheme.colorScheme.surface else color.copy(alpha = 0.16f),
                         border = androidx.compose.foundation.BorderStroke(1.dp, if (tile.isEmpty) MaterialTheme.colorScheme.outlineVariant else color.copy(alpha = 0.6f)),
@@ -139,14 +171,14 @@ private fun TileGridPreview(vm: AppViewModel) {
 /** One field: name, colour and its two gestures. Changes count only with "Speichern". */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EditTileScreen(vm: AppViewModel, index: Int) {
-    var tile by remember(index) { mutableStateOf(vm.tiles.getOrNull(index) ?: GestureTile()) }
-    val columns = vm.settings.tileColumns
-    val where = "Reihe ${index / columns + 1}, Spalte ${index % columns + 1}"
+fun EditTileScreen(vm: AppViewModel, index: Int, learn: Boolean) {
+    var tile by remember(index, learn) { mutableStateOf(vm.tilesOf(learn).getOrNull(index) ?: GestureTile()) }
+    val columns = vm.columnsOf(learn)
+    val where = if (learn) "Beim Lernen, Reihe ${index + 1}" else "Reihe ${index / columns + 1}, Spalte ${index % columns + 1}"
     Column(Modifier.fillMaxSize()) {
         TopBar("Kachel bearbeiten", vm::back, subtitle = where) {
             SmallButton("Speichern", {
-                vm.saveTile(index, tile)
+                vm.saveTile(index, tile, learn)
                 vm.back()
             }, color = tileColor(tile.color))
         }

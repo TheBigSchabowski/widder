@@ -20,6 +20,15 @@ enum class ActionKind(val label: String, val needsDeck: Boolean = false) {
     /** The options of the chosen or open deck; without one the settings. */
     CONFIG("Konfiguration"),
     HELP("Modi & Tasten"),
+
+    /** While learning: the card on screen in the editor. */
+    EDIT_CARD("Karte bearbeiten"),
+
+    /** The keyboard under a MIDI answer, once the answer shows. */
+    KEYBOARD("Klaviatur"),
+
+    /** In the editor opened while learning: save and go back to the card. */
+    BACK_TO_CARD("Speichern → zurück zur Karte"),
 }
 
 /**
@@ -128,5 +137,15 @@ object Shortcuts {
         GestureTile("Neue Karte", TileColor.BLUE, doubleTap = Action(ActionKind.IMPORT), longPress = Action(ActionKind.NEW_CARD)),
         GestureTile("Stapel", TileColor.AMBER, doubleTap = Action(ActionKind.OPEN_CHORDS), longPress = Action(ActionKind.OPEN_CARDS)),
         GestureTile("Aufnehmen", TileColor.RED, doubleTap = Action(ActionKind.HOME), longPress = Action(ActionKind.RECORD)),
+    )
+
+    /**
+     * While learning, and in the editor opened from there: one column, top to bottom. Each
+     * gesture only counts where it can do something, so elsewhere the taps reach the screen.
+     */
+    val defaultLearnTiles = listOf(
+        GestureTile("Bearbeiten", TileColor.BLUE, doubleTap = Action(ActionKind.EDIT_CARD)),
+        GestureTile("Klaviatur", TileColor.TEAL, doubleTap = Action(ActionKind.KEYBOARD)),
+        GestureTile("Zurück zur Karte", TileColor.GREEN, doubleTap = Action(ActionKind.BACK_TO_CARD)),
     )
 }

@@ -105,7 +105,10 @@ class ActionsTest {
         assertTrue(vm.tilesActive())
         vm.home()
         vm.startTraining(chordsKit)
+        assertTrue(vm.learnGrid, "while learning the learning grid listens instead")
+        vm.updateSettings { it.copy(learnTilesOn = false) }
         assertFalse(vm.tilesActive(), "dragging chords needs the gestures itself")
+        vm.updateSettings { it.copy(learnTilesOn = true) }
         vm.home()
         vm.newCard(cardsKit)
         assertFalse(vm.tilesActive(), "so does typing")
@@ -116,6 +119,40 @@ class ActionsTest {
         assertFalse(vm.onTileGesture(0, long = true), "an empty field lets everything through")
         vm.updateSettings { it.copy(tileScope = TileScope.OFF) }
         assertFalse(vm.tilesActive())
+    }
+
+    @Test
+    fun learningGridEditsTheCardShowsTheKeyboardAndGoesBack() {
+        val vm = vm()
+        assertEquals(Shortcuts.defaultLearnTiles, vm.tilesOf(learn = true))
+        vm.startReview(cardsKit)
+        val card = vm.review!!.card!!
+        assertTrue(vm.learnGrid)
+        assertTrue(vm.tilesActive(), "on by default while learning, whatever the other grid does")
+        assertEquals(1 to 3, vm.gridColumns to vm.gridRows)
+        assertFalse(vm.hasTileAction(1, long = false), "no keyboard before the answer")
+        assertFalse(vm.hasTileAction(2, long = false), "nothing to go back to: the taps go through")
+
+        vm.showAnswer()
+        assertTrue(vm.onTileGesture(1, long = false))
+        assertTrue(vm.keyboardOpen)
+        assertTrue(vm.onTileGesture(1, long = false))
+        assertFalse(vm.keyboardOpen)
+
+        assertTrue(vm.onTileGesture(0, long = false))
+        assertEquals(Screen.EditCard, vm.screen)
+        assertTrue(vm.learnGrid, "the editor opened from learning keeps the learning grid")
+        assertFalse(vm.hasTileAction(0, long = false), "already editing: double taps reach the text")
+        vm.editor!!.notes = "Daumen auf Cis"
+        assertTrue(vm.onTileGesture(2, long = false))
+        assertEquals(Screen.Review(cardsKit), vm.screen)
+        assertEquals("Daumen auf Cis", vm.review!!.card!!.notes)
+        assertEquals("Daumen auf Cis", vm.collection.cards.first { it.id == card.id }.notes)
+
+        vm.home()
+        vm.newCard(cardsKit)
+        assertFalse(vm.learnGrid, "a new card from the start screen is no learning")
+        vm.cancelEditor()
     }
 
     @Test

@@ -82,6 +82,7 @@ fun HelpScreen(vm: AppViewModel) {
                         KeyRow("Leertaste", "Antwort zeigen, danach Gut")
                         KeyRow("1 2 3 4", "Nochmal · Schwer · Gut · Leicht")
                         KeyRow("R · E · M", "nochmal hören · bearbeiten · mischen")
+                        KeyRow("K", "Klaviatur (nach der Antwort, bei MIDI)")
                         KeyRow(if (vm.platform.macKeys) "⌘Z" else "Strg+Z", "rückgängig")
                         Spacer(Modifier.height(10.dp))
                         Text(kindName(DeckKind.CHORDS), fontWeight = FontWeight.SemiBold, color = kindColor(DeckKind.CHORDS))
@@ -90,6 +91,7 @@ fun HelpScreen(vm: AppViewModel) {
                         KeyRow("⌫", "letzte Kachel zurücklegen")
                         KeyRow("1 2 3 4", "nach dem Prüfen: Nochmal · Schwer · Gut · Leicht")
                         KeyRow("E · M", "Audio bearbeiten · mischen")
+                        KeyRow("K", "Klaviatur (nach dem Prüfen, bei MIDI)")
                         Spacer(Modifier.height(10.dp))
                         KeyRow("Esc", "zurück")
                     }
@@ -105,7 +107,20 @@ fun HelpScreen(vm: AppViewModel) {
                             Modifier.padding(bottom = 8.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        for (tile in vm.tiles.filter { !it.isEmpty }) {
+                        for (tile in vm.tilesOf(learn = false).filter { !it.isEmpty }) {
+                            KeyRow(tile.displayTitle, listOfNotNull(
+                                tile.doubleTap.takeIf { !it.isNone }?.let { "2× " + vm.describe(it) },
+                                tile.longPress.takeIf { !it.isNone }?.let { "halten: " + vm.describe(it) },
+                            ).joinToString(" · "))
+                        }
+                    }
+                    if (vm.settings.learnTilesOn) {
+                        Text(
+                            "Beim Lernen, von oben nach unten:",
+                            Modifier.padding(top = 12.dp, bottom = 8.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        for (tile in vm.tilesOf(learn = true).filter { !it.isEmpty }) {
                             KeyRow(tile.displayTitle, listOfNotNull(
                                 tile.doubleTap.takeIf { !it.isNone }?.let { "2× " + vm.describe(it) },
                                 tile.longPress.takeIf { !it.isNone }?.let { "halten: " + vm.describe(it) },

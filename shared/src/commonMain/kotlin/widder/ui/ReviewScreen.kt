@@ -74,7 +74,7 @@ fun ReviewScreen(vm: AppViewModel) {
                                     }
                                 }
                             }
-                            val midi = listOfNotNull(card.frontAudio, card.backAudio).firstOrNull { it.isMidi }
+                            val midi = vm.midiClip(card)
                             if (midi != null) {
                                 Spacer(Modifier.height(12.dp))
                                 MidiKeyboard(vm, midi, "review-keys")
