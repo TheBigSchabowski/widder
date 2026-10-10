@@ -199,6 +199,7 @@ fun AudioSlot(vm: AppViewModel, target: ClipTarget, clip: Clip?, color: Color) {
             DownloadButton(vm, clip)
             SmallButton("Entfernen", { vm.removeClip(target) }, color = MaterialTheme.colorScheme.error)
         }
+        if (clip.isMidi) MidiKeyboard(vm, clip, "slot-keys-${target.back}")
     }
 }
 

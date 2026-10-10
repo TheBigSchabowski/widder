@@ -59,6 +59,7 @@ import widder.music.Key
 import widder.music.Token
 import widder.music.Midi
 import widder.music.MidiAnalysis
+import widder.music.Note
 import widder.music.Notation
 
 class AppViewModel(
@@ -562,6 +563,31 @@ class AppViewModel(
                 clip.name to (store.readMedia(clip.file) ?: return@launch toast("Datei fehlt"))
             }
             platform.saveFile(AnswerParser.fileSafe(name), bytes) { where -> if (where != null) scope.launch { toast("Gespeichert: $where") } }
+        }
+    }
+
+    /** The keyboard under a MIDI answer is open; it stays open for the next cards. */
+    var keyboardOpen by mutableStateOf(false)
+
+    /** The keys of a MIDI clip chord by chord, as far as it is not cut away; null if it cannot be read. */
+    suspend fun grips(clip: Clip): List<MidiAnalysis.Grip>? = withContext(work) {
+        val bytes = store.readMedia(clip.file) ?: return@withContext null
+        val midi = runCatching { Midi.parse(bytes) }.getOrNull() ?: return@withContext null
+        MidiAnalysis.grips(midi, clip.edit.trimStart, clip.edit.trimEnd)
+    }
+
+    /** Strikes [pitches] together, to hear one grip of the keyboard on its own. */
+    fun playKeys(pitches: List<Int>, key: String) {
+        if (!live) return
+        if (playingKey == key && audio.player.isPlaying) {
+            stopAudio()
+            return
+        }
+        playingKey = key
+        scope.launch {
+            val pcm = withContext(work) { Synth.render(pitches.map { Note(it, 0.0, 1.4, 90) }) }
+            if (playingKey != key) return@launch
+            audio.player.play(pcm) { scope.launch { if (playingKey == key) playingKey = null } }
         }
     }
 

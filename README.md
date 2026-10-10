@@ -107,6 +107,12 @@ Für alles ohne Akkorde oder feste Tonart gibt es das Feld **„Eigener Text sta
 Stufen“** (z. B. `Son Clave 3-2`): Ist es ausgefüllt, zeigt die Karte diesen Text statt der
 Akkord-Chips; bei Multiple Choice erscheint er nach dem Prüfen, die Stufen fallen weg.
 
+Bei MIDI-Audio klappt **„Auf der Klaviatur zeigen“** eine kleine Klaviatur auf: welche Tasten die
+Datei drückt, Akkord für Akkord, mit Notennamen (C4 = eingestrichenes C) – zum Nachschauen, ob die
+Lösung stimmt, nicht zum Abfragen. Sie erscheint erst mit der Antwort (Abfrage) bzw. nach dem
+Prüfen (Training) und im Editor unter der MIDI-Datei; ein Tipp auf eine Klaviatur spielt den Griff.
+Einmal geöffnet bleibt sie für die nächsten Karten offen.
+
 Jedes Audio lässt sich per **„Herunterladen“** speichern – als WAV so wie es klingt (mit Schnitt
 und Effekten, MIDI wird dabei zu Audio) oder als Originaldatei.
 

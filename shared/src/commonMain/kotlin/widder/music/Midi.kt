@@ -270,6 +270,25 @@ object MidiAnalysis {
 
     fun chords(midi: MidiFile): List<Chord> = segments(midi).mapNotNull { it.chord }
 
+    /** What is pressed at one point of a piece: the keys, and the chord they make if any. */
+    data class Grip(val pitches: List<Int>, val chord: Chord?)
+
+    /**
+     * The keys of a piece chord by chord, for looking up how it is played: every note that starts
+     * or sounds within a chord counts towards it (so a broken chord shows all its keys). Only
+     * notes between [from] and [to] (seconds) count, as a trimmed clip plays. Without a chord,
+     * e.g. for an interval, all notes come as one grip.
+     */
+    fun grips(midi: MidiFile, from: Double = 0.0, to: Double? = null): List<Grip> {
+        val notes = midi.notes.filter { it.channel != 9 && it.end > from + 0.001 && (to == null || it.start < to - 0.001) }
+        if (notes.isEmpty()) return emptyList()
+        val grips = segments(MidiFile(notes)).map { s ->
+            val keys = notes.filter { (it.start >= s.start - 0.06 && it.start < s.end - 0.001) || (it.start <= s.start && it.end > s.start + 0.03) }
+            Grip(keys.map { it.pitch }.distinct().sorted(), s.chord)
+        }
+        return grips.ifEmpty { listOf(Grip(notes.map { it.pitch }.distinct().sorted(), null)) }
+    }
+
     /**
      * The interval of a piece made of exactly two notes, together or one after the other, in
      * semitones (1 up to 24, the Quintdezime); null for anything else.
