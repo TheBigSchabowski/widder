@@ -8,6 +8,8 @@ import widder.core.AudioEdit
 import widder.music.Chord
 import widder.music.Midi
 import widder.music.MidiAnalysis
+import widder.music.MidiFile
+import widder.music.Note
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.sin
@@ -73,6 +75,26 @@ class AudioTest {
         val midi = Midi.parse(Midi.write(MidiAnalysis.progression(chords, 1.0), bpm = 90))
         assertEquals(listOf("Fm", "Gm", "Cm7"), MidiAnalysis.chords(midi).map { it.name() })
         assertTrue(abs(midi.duration - 2.95) < 0.05, "duration ${midi.duration}")
+    }
+
+    @Test
+    fun gripsShowTheKeysOfEachChord() {
+        val chords = listOf("Am", "F").map { Chord.parse(it)!! }
+        val midi = Midi.parse(Midi.write(MidiAnalysis.progression(chords, 1.0)))
+        val grips = MidiAnalysis.grips(midi)
+        assertEquals(listOf("Am", "F"), grips.map { it.chord?.name() })
+        assertEquals(listOf(45, 57, 60, 64), grips[0].pitches)
+        assertEquals(listOf(41, 65, 69, 72), grips[1].pitches)
+        // Trimmed to the second chord, only that one is left.
+        assertEquals(listOf("F"), MidiAnalysis.grips(midi, from = 1.1).map { it.chord?.name() })
+    }
+
+    @Test
+    fun brokenChordAndIntervalGrips() {
+        val broken = listOf(57, 60, 64).mapIndexed { i, p -> Note(p, i * 0.3, 1.5, 90) }
+        assertEquals(listOf(MidiAnalysis.Grip(listOf(57, 60, 64), Chord.parse("Am"))), MidiAnalysis.grips(MidiFile(broken)))
+        val interval = MidiFile(MidiAnalysis.interval(52, 7, together = false))
+        assertEquals(listOf(52, 59), MidiAnalysis.grips(interval).single().pitches)
     }
 
     @Test

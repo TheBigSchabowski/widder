@@ -74,8 +74,7 @@ fun main() {
     render("training-halb") { vm ->
         vm.startTraining(vm.chordDeck())
         val round = vm.training!!.round!!
-        vm.placeTile(round.pool.first { it.token.key == round.answer[0].key }, 0)
-        vm.placeTile(round.pool.first { it.token.key == round.answer[1].key }, 1)
+        round.answer.take(2).forEachIndexed { i, t -> vm.placeTile(round.pool.first { it.token.key == t.key }, i) }
     }
     render("training-falsch") { vm ->
         vm.updateDeck(vm.deck(vm.chordDeck())!!.copy(distractors = 2))
@@ -136,6 +135,19 @@ fun main() {
         vm.startReview(cardsKit)
         vm.review!!.card = vm.cardsIn(cardsKit).first { it.voicing.startsWith("Amaj7/Cis") }
         vm.showAnswer()
+    }
+    render("karte-klaviatur") { vm ->
+        vm.startReview(cardsKit)
+        vm.review!!.card = vm.cardsIn(cardsKit).first { it.voicing.startsWith("Amaj7/Cis") }
+        vm.showAnswer()
+        vm.keyboardOpen = true
+    }
+    render("training-klaviatur") { vm ->
+        vm.startTraining(vm.chordDeck())
+        val round = vm.training!!.round!!
+        round.answer.forEachIndexed { i, t -> vm.placeTile(round.pool.first { p -> p.token.key == t.key && round.inPool(p) }, i) }
+        vm.checkRound()
+        vm.keyboardOpen = true
     }
     render("editor-umkehrung") { vm ->
         vm.editCard(vm.cardsIn(cardsKit).first { it.voicing.startsWith("Amaj7/Cis") })
