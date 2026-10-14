@@ -69,6 +69,8 @@ fun HomeScreen(vm: AppViewModel) {
                 Header(vm)
                 Spacer(Modifier.height(18.dp))
                 Paths(vm)
+                Spacer(Modifier.height(14.dp))
+                PracticeCard(vm)
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         listOfNotNull(
@@ -183,6 +185,34 @@ private fun Paths(vm: AppViewModel) {
     }
 }
 
+/** The third way: no cards, just a drone and drums to play along with. */
+@Composable
+private fun PracticeCard(vm: AppViewModel) {
+    val color = Palette.practice
+    Surface(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).clickable { vm.open(Screen.Practice) },
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+    ) {
+        Row(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(12.dp).clip(CircleShape).background(color))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Üben", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Drone auf jedem Grundton und Drums mit 17 Grooves und mehreren Drumsets zum Mitspielen.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text("  ›", style = MaterialTheme.typography.titleLarge, color = color, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
 @Composable
 private fun PathCard(modifier: Modifier, color: Color, title: String, text: String, due: Int, decks: Int, onClick: () -> Unit) {
     Surface(
@@ -219,7 +249,7 @@ fun tileColor(color: TileColor): Color = when (color) {
     TileColor.RED -> Palette.again
     TileColor.BLUE -> Palette.easy
     TileColor.GREEN -> Palette.good
-    TileColor.PURPLE -> Color(0xFF9B6DD6)
+    TileColor.PURPLE -> Palette.practice
     TileColor.GREY -> Color(0xFF8A8494)
 }
 

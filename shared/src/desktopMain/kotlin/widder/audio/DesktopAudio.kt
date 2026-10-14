@@ -196,4 +196,5 @@ internal fun findTool(name: String): String? =
         .firstOrNull { it.isFile && it.canExecute() }
         ?.path
 
-fun desktopAudioSystem(): AudioSystem = AudioSystem(StreamingPlayer { LineSink() }, LineRecorder(), DesktopDecoder())
+fun desktopAudioSystem(): AudioSystem =
+    AudioSystem(StreamingPlayer { LineSink() }, LineRecorder(), DesktopDecoder(), LiveStream { LineSink() }, ::bundledResource)

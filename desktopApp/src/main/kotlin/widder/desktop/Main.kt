@@ -154,7 +154,7 @@ private fun handleKey(vm: AppViewModel, event: KeyEvent): Boolean {
     }
     val command = event.isMetaPressed || event.isCtrlPressed
     // Typing in text fields (card editor, search) must not trigger shortcuts.
-    val study = vm.screen is Screen.Review || vm.screen is Screen.Train || vm.audioEditor != null
+    val study = vm.screen is Screen.Review || vm.screen is Screen.Train || vm.screen == Screen.Practice || vm.audioEditor != null
     val key = when {
         event.key == Key.Escape -> KeyCommand.ESCAPE
         !study -> null
@@ -171,6 +171,10 @@ private fun handleKey(vm: AppViewModel, event: KeyEvent): Boolean {
         event.key == Key.K -> KeyCommand.KEYBOARD
         event.key == Key.M -> KeyCommand.SHUFFLE
         event.key == Key.Backspace -> KeyCommand.BACKSPACE
+        event.key == Key.D -> KeyCommand.DRONE
+        event.key == Key.T -> KeyCommand.TAP
+        event.key == Key.DirectionUp -> KeyCommand.FASTER
+        event.key == Key.DirectionDown -> KeyCommand.SLOWER
         else -> null
     } ?: return false
     return vm.onKey(key)

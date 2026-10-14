@@ -26,6 +26,9 @@ sealed interface Screen {
     data object Tiles : Screen
     data object Help : Screen
 
+    /** Drone and drums to practise with. */
+    data object Practice : Screen
+
     /** One field of the gesture grid, counted row by row. */
     data class EditTile(val index: Int, val learn: Boolean = false) : Screen
 
@@ -159,4 +162,4 @@ class Confirm(val title: String, val text: String, val action: String, val run: 
 class RewardImages(val sharp: ImageBitmap, val blurred: ImageBitmap)
 
 /** Keys the desktop app forwards while learning. */
-enum class KeyCommand { SPACE, ENTER, ONE, TWO, THREE, FOUR, UNDO, REPLAY, EDIT, KEYBOARD, SHUFFLE, BACKSPACE, ESCAPE }
+enum class KeyCommand { SPACE, ENTER, ONE, TWO, THREE, FOUR, UNDO, REPLAY, EDIT, KEYBOARD, SHUFFLE, BACKSPACE, ESCAPE, DRONE, TAP, FASTER, SLOWER }

@@ -207,4 +207,4 @@ private class CodecDecoder(private val cacheDir: File) : AudioDecoder {
 }
 
 fun androidAudioSystem(cacheDir: File): AudioSystem =
-    AudioSystem(StreamingPlayer { TrackSink() }, MicRecorder(), CodecDecoder(cacheDir))
+    AudioSystem(StreamingPlayer { TrackSink() }, MicRecorder(), CodecDecoder(cacheDir), LiveStream { TrackSink() }, ::bundledResource)

@@ -29,7 +29,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-private class MemoryStore : FileStore {
+internal class MemoryStore : FileStore {
     val files = mutableMapOf<String, ByteArray>()
     override val location = "memory"
     override fun read(name: String) = files[name]?.decodeToString()

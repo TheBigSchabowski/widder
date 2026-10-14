@@ -62,6 +62,19 @@ fun main() {
     fun AppViewModel.cardDeck() = decks(DeckKind.CARDS).first().id
 
     render("home") {}
+    render("ueben", keys = true) { it.open(Screen.Practice) }
+    render("ueben-tanpura", interact = { scene ->
+        repeat(60) {
+            scene.sendPointerEvent(
+                androidx.compose.ui.input.pointer.PointerEventType.Scroll,
+                androidx.compose.ui.geometry.Offset(300f, 600f),
+                scrollDelta = androidx.compose.ui.geometry.Offset(0f, 10f),
+            )
+        }
+    }) { vm ->
+        vm.open(Screen.Practice)
+        vm.updatePractice { it.copy(sound = widder.core.DroneSound.TANPURA, meter = widder.core.Meter.SIX_EIGHT, groove = "6/8 Blues", kit = widder.core.DrumKit.CLICK) }
+    }
     render("stapel-karten") { it.open(Screen.Decks(DeckKind.CARDS)) }
     render("stapel-akkorde") { it.open(Screen.Decks(DeckKind.CHORDS)) }
     render("uebungen") { it.open(Screen.Browse(it.chordDeck())) }

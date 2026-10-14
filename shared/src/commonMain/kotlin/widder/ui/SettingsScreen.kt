@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import widder.core.KeyStroke
@@ -194,10 +195,10 @@ private fun Label(text: String) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun <T> Choices(options: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
+fun <T> Choices(options: List<T>, selected: T, label: (T) -> String, color: Color = MaterialTheme.colorScheme.primary, onPick: (T) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for (o in options) {
-            Chip(label(o), MaterialTheme.colorScheme.primary, filled = o == selected, modifier = Modifier.clickable { onPick(o) })
+            Chip(label(o), color, filled = o == selected, modifier = Modifier.clickable { onPick(o) })
         }
     }
 }

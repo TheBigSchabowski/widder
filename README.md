@@ -68,6 +68,30 @@ Verstanden werden u. a. `m min - moll`, `7 maj7 M7 Δ`, `m7 m7b5 ø dim dim7 aug
 Slash-Akkorde (`C/E`) und deutsche Namen (`H`, `Fis`, `Es`, `As`, `Cism`, `Des-Dur`).
 In den Einstellungen: „Deutsche Notennamen“ (B = Bb).
 
+## Üben: Drone und Drums
+
+Der dritte Weg auf dem Startbildschirm hat keine Karten – nur Begleitung zum Mitspielen. Drone und
+Drums laufen unabhängig voneinander (jeweils eigener Play-Knopf) und lassen sich während des
+Spielens umstellen; Wechsel werden weich überblendet.
+
+| Teil | Einstellungen |
+|---|---|
+| **Drone** | Grundton (alle 12), Oktave 1–4, Klang **Sinus / Orgel / Fläche / Tanpura**, Quinte und Oktave dazu, Lautstärke, Stimmton a′ = 432 / 440 / 442 / 443 Hz |
+| **Drums** | Tempo 40–240 (Regler, ±1, Tempo tippen), Taktart 4/4 · 3/4 · 2/4 · 6/8, 17 Grooves, Drumset, Metronom-Klick dazu, Lautstärke |
+
+Die Drum-Machine ist die aus [NicheLooper](https://github.com/TheBigSchabowski/NicheLooper):
+dieselben 17 Grooves (Rock, Pop, Straight 16, Funk, Ballad, Four on the Floor, Shuffle, Bossa,
+Waltz, Jazz Waltz, Waltz Ballad, March, Polka, 2/4 Rock, 6/8 Basic, 6/8 Blues, 6/8 March) mit
+Akzenten und Ghost Notes, dieselbe Klick-Hierarchie (G6 auf der Eins, E6 auf Nebenakzenten, C6),
+BPM in 6/8 zählt Achtel. Drumsets: **Akustik** (die Black-Pearl-Samples aus NicheLooper),
+**Synth** (NicheLoopers synthetisches Kit), **808**, **Besen** (Filzkick, Besen, Ride),
+**Cajón** (Bass, Slap, Shaker) und **Nur Klick**.
+
+Tanpura zupft wie das Original vier Saiten im Kreis: Pa (die Quinte, ohne „Quinte dazu“ die
+Oktave), zweimal das hohe Sa, dann das tiefe Sa. Die Einstellungen bleiben gespeichert, gespielt
+wird nur, solange „Üben“ offen ist. Am Mac/unter Linux: Leertaste = Drums an/aus, D = Drone, T =
+Tempo tippen, ↑ ↓ = Tempo. Übezeit zählt nicht für die Bildbelohnung.
+
 ## Ordner: Dateien von außen prüfen und tauschen
 
 Jeder Stapel lässt sich mit einem Ordner verbinden (Knopf „Ordner“ am Stapel, Details in den
@@ -262,14 +286,22 @@ Mac: `~/Documents/Widder`, Linux: `Widder` im Dokumente-Ordner (nach XDG, z. B.
 shared/src/commonMain/kotlin/widder/
   core/    Modell, FSRS mit Lernschritten, Warteschlange, Akkord-Runde, Bildbelohnung, Speicher
   music/   Akkord-Parser/-Erkennung, Dateinamen-Parser, MIDI lesen/schreiben/analysieren
-  audio/   PCM, WAV, Synth, Effekte (Filter, Freeverb), Player/Recorder-Schnittstellen
+  audio/   PCM, WAV, Synth, Effekte (Filter, Freeverb), Player/Recorder-Schnittstellen,
+           Übe-Engine (Drone, Drumsets, Grooves aus NicheLooper)
   ui/      Compose-Oberfläche und AppViewModel
-shared/src/jvmCommonMain   Dateien, Zeit, Audio-Thread (für beide Plattformen)
+shared/src/jvmCommonMain   Dateien, Zeit, Audio-Threads (für beide Plattformen), Drum-Samples
 shared/src/androidMain     AudioTrack, AudioRecord, MediaCodec (MP3/M4A/FLAC/OGG)
 shared/src/desktopMain     javax.sound; Dateiformate: afconvert (Mac), Java-Decoder (MP3, M4A/AAC,
                            FLAC, OGG), ffmpeg falls vorhanden; Ordner-Dialoge, XDG-Verzeichnisse
 androidApp/, desktopApp/   Einstiegspunkte
 ```
+
+## Drittanbieter-Inhalte
+
+- **Drum-Samples** des Drumsets „Akustik“ (`shared/src/jvmCommonMain/resources/drums/*.wav`) – aus
+  dem Hydrogen-Drumkit **„The Black Pearl 1.0“** von Glen MacArthur (AVL Drumkits), lizenziert unter
+  der **GPL**, übernommen aus NicheLooper. Quelle und Zuordnung der Einzeldateien:
+  `drums/ATTRIBUTION.txt`. Beim Weiterverteilen gelten für diese Samples die GPL-Bedingungen.
 
 ## Noch offen
 

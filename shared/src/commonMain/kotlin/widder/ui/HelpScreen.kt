@@ -45,6 +45,11 @@ fun HelpScreen(vm: AppViewModel) {
                         kindColor(DeckKind.CHORDS),
                     )
                     Mode(
+                        "Üben",
+                        "Drone auf jedem Grundton (Sinus, Orgel, Fläche, Tanpura) und Drums mit 17 Grooves und sechs Drumsets zum Mitspielen.",
+                        Palette.practice,
+                    )
+                    Mode(
                         "Markieren",
                         "In den Stapellisten „Markieren“, Stapel antippen" + (prefix?.let { " (oder ⇧ + Klick, $it ⇧ + Nummer)" } ?: "") +
                             ", dann „Löschen“ – mehrere auf einmal.",
@@ -92,6 +97,10 @@ fun HelpScreen(vm: AppViewModel) {
                         KeyRow("1 2 3 4", "nach dem Prüfen: Nochmal · Schwer · Gut · Leicht")
                         KeyRow("E · M", "Audio bearbeiten · mischen")
                         KeyRow("K", "Klaviatur (nach dem Prüfen, bei MIDI)")
+                        Spacer(Modifier.height(10.dp))
+                        Text("Üben", fontWeight = FontWeight.SemiBold, color = Palette.practice)
+                        KeyRow("Leertaste · D", "Drums · Drone an/aus")
+                        KeyRow("T · ↑ ↓", "Tempo tippen · Tempo ±1")
                         Spacer(Modifier.height(10.dp))
                         KeyRow("Esc", "zurück")
                     }

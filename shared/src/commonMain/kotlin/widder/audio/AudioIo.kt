@@ -30,12 +30,41 @@ fun interface AudioDecoder {
     fun decode(bytes: ByteArray, extension: String): Pcm?
 }
 
+/** Endless audio made on the fly, such as the practice mode's drone and drums. */
+interface LiveSource {
+    /** On the audio thread before the first [render], with the rate the output opened at. */
+    fun prepare(sampleRate: Int)
+
+    /** Fills the first [frames] samples of [left] and [right]; runs on the audio thread. */
+    fun render(left: FloatArray, right: FloatArray, frames: Int)
+}
+
+/** A second output next to [AudioPlayer] that streams a [LiveSource] until stopped. */
+interface LiveOutput {
+    /** [onFail] runs on the audio thread when no output can be opened. */
+    fun start(source: LiveSource, onFail: () -> Unit = {})
+
+    /** Fades out and closes. */
+    fun stop()
+
+    val isRunning: Boolean
+}
+
 /** Everything the app needs from the platform besides files. */
 class AudioSystem(
     val player: AudioPlayer,
     val recorder: AudioRecorder,
     val decoder: AudioDecoder,
+    val live: LiveOutput = NoLiveOutput,
+    /** Sound files shipped with the app, e.g. "drums/kick.wav"; null if missing. */
+    val bundled: (String) -> ByteArray? = { null },
 )
+
+object NoLiveOutput : LiveOutput {
+    override fun start(source: LiveSource, onFail: () -> Unit) = Unit
+    override fun stop() = Unit
+    override val isRunning = false
+}
 
 /** For previews and tests: no sound at all. */
 object SilentAudio {

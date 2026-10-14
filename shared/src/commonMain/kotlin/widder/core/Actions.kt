@@ -8,6 +8,7 @@ enum class ActionKind(val label: String, val needsDeck: Boolean = false) {
     NONE("Nichts"),
     OPEN_CARDS("Flash Cards öffnen"),
     OPEN_CHORDS("Multiple Choice öffnen"),
+    OPEN_PRACTICE("Üben: Drone & Drums"),
     STUDY("Lernen", needsDeck = true),
     BROWSE("Stapel öffnen", needsDeck = true),
     NEW_CARD("Neue Karte", needsDeck = true),
