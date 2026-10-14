@@ -26,6 +26,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -252,7 +253,7 @@ private fun Waveform(vm: AppViewModel, state: AudioEditorState) {
 }
 
 @Composable
-private fun LabeledSlider(label: String, value: String, position: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
+fun LabeledSlider(label: String, value: String, position: Float, range: ClosedFloatingPointRange<Float>, color: Color = accent, onChange: (Float) -> Unit) {
     Column {
         Row {
             Text(label, Modifier.weight(1f))
@@ -262,20 +263,20 @@ private fun LabeledSlider(label: String, value: String, position: Float, range: 
             position.coerceIn(range.start, range.endInclusive),
             onChange,
             valueRange = range,
-            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent),
+            colors = SliderDefaults.colors(thumbColor = color, activeTrackColor = color),
         )
     }
 }
 
 @Composable
-fun SwitchRow(title: String, text: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
+fun SwitchRow(title: String, text: String?, checked: Boolean, color: Color? = null, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title)
             if (text != null) Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked, onChange)
+        Switch(checked, onChange, colors = color?.let { SwitchDefaults.colors(checkedTrackColor = it, checkedThumbColor = Color.White) } ?: SwitchDefaults.colors())
     }
 }
 

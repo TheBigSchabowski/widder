@@ -13,6 +13,7 @@ object Palette {
     val cardsDark = Color(0xFFB8741A)
     val chords = Color(0xFF3FB8A6)
     val chordsDark = Color(0xFF1F8A7A)
+    val practice = Color(0xFF9B6DD6)
     val again = Color(0xFFE5484D)
     val hard = Color(0xFFE8963D)
     val good = Color(0xFF46A758)

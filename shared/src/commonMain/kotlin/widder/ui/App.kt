@@ -27,6 +27,7 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
                     Screen.Settings -> SettingsScreen(vm)
                     Screen.Tiles -> TilesScreen(vm)
                     Screen.Help -> HelpScreen(vm)
+                    Screen.Practice -> PracticeScreen(vm)
                     is Screen.EditTile -> EditTileScreen(vm, s.index, s.learn)
                 }
                 AudioEditorScreen(vm)

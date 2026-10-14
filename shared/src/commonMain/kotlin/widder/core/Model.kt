@@ -143,7 +143,56 @@ data class Settings(
     val prefix: KeyStroke? = Shortcuts.DEFAULT_PREFIX,
     /** Desktop: prefix + letter; null = the standard ones. */
     val shortcuts: List<Shortcut>? = null,
+    /** What the practice mode played last time. */
+    val practice: PracticeSettings = PracticeSettings(),
 )
+
+@Serializable
+enum class DroneSound(val label: String) { SINE("Sinus"), ORGAN("Orgel"), PAD("Fläche"), TANPURA("Tanpura") }
+
+@Serializable
+enum class DrumKit(val label: String) {
+    /** The sampled kit from NicheLooper ("The Black Pearl"). */
+    ACOUSTIC("Akustik"),
+    /** NicheLooper's synthesized fallback kit. */
+    SYNTH("Synth"),
+    ELECTRO("808"),
+    BRUSHES("Besen"),
+    CAJON("Cajón"),
+    /** No drums, only the metronome. */
+    CLICK("Nur Klick"),
+}
+
+@Serializable
+enum class Meter(val label: String, val beats: Int) { FOUR_FOUR("4/4", 4), THREE_FOUR("3/4", 3), TWO_FOUR("2/4", 2), SIX_EIGHT("6/8", 6) }
+
+/** Practice mode: a drone to play against and a drum machine. */
+@Serializable
+data class PracticeSettings(
+    /** Pitch class of the drone, 0 = C. */
+    val root: Int = 9,
+    /** Octave of the root in scientific pitch, A2 = 110 Hz. */
+    val octave: Int = 2,
+    val sound: DroneSound = DroneSound.ORGAN,
+    val fifth: Boolean = true,
+    val octaveUp: Boolean = false,
+    /** Concert pitch of A4 in Hz. */
+    val tuning: Int = 440,
+    val droneVolume: Float = 0.6f,
+    val kit: DrumKit = DrumKit.ACOUSTIC,
+    /** Clicks per minute: quarters, eighths in 6/8. */
+    val bpm: Int = 90,
+    val meter: Meter = Meter.FOUR_FOUR,
+    /** Name of the groove (see Grooves); one of another meter falls back to the meter's first. */
+    val groove: String = "Rock",
+    val click: Boolean = false,
+    val drumVolume: Float = 0.7f,
+) {
+    companion object {
+        const val MIN_BPM = 40
+        const val MAX_BPM = 240
+    }
+}
 
 @Serializable
 enum class NumeralMode { OFF, WITH_NAME, ONLY }

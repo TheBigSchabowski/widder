@@ -14,12 +14,15 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.roundToInt
 import kotlin.random.Random
 import widder.audio.AUDIO_EXTENSIONS
 import widder.audio.AudioSystem
 import widder.audio.Effects
+import widder.audio.DrumSamples
 import widder.audio.MIDI_EXTENSIONS
 import widder.audio.Pcm
+import widder.audio.PracticeEngine
 import widder.audio.RenderCache
 import widder.audio.Synth
 import widder.audio.Wav
@@ -51,6 +54,7 @@ import widder.core.currentTimeMillis
 import widder.core.formatTime
 import widder.core.newId
 import widder.core.NumeralMode
+import widder.core.PracticeSettings
 import widder.music.AnswerParser
 import widder.music.Chord
 import widder.music.Harmony
@@ -167,6 +171,7 @@ class AppViewModel(
     fun dispose() {
         flushStudyTime()
         audio.player.stop()
+        stopPractice()
         scope.cancel()
     }
 
@@ -203,6 +208,7 @@ class AppViewModel(
         if (leaving is Screen.Review) review = null
         if (leaving is Screen.Train) training = null
         if (leaving is Screen.EditCard) editor = null
+        if (leaving == Screen.Practice) stopPractice()
         stack = stack.dropLast(1)
     }
 
@@ -1428,6 +1434,7 @@ class AppViewModel(
         when (action.kind) {
             ActionKind.OPEN_CARDS -> jumpTo(Screen.Decks(DeckKind.CARDS))
             ActionKind.OPEN_CHORDS -> jumpTo(Screen.Decks(DeckKind.CHORDS))
+            ActionKind.OPEN_PRACTICE -> jumpTo(Screen.Practice)
             ActionKind.SETTINGS -> jumpTo(Screen.Settings)
             ActionKind.CONFIG -> actionDeckId()?.let { deckDialog = DeckDialog.Options(it) } ?: jumpTo(Screen.Settings)
             ActionKind.HELP -> if (screen != Screen.Help) open(Screen.Help)
@@ -1570,10 +1577,89 @@ class AppViewModel(
 
     // endregion
 
+    // region practice
+
+    /** The practice mode's settings while it is open; saved with the collection when it is left. */
+    var practice by mutableStateOf(settings.practice)
+        private set
+    var droneOn by mutableStateOf(false)
+        private set
+    var drumsOn by mutableStateOf(false)
+        private set
+
+    val practiceEngine = PracticeEngine { DrumSamples.load(audio.bundled) }
+    private val taps = ArrayDeque<Long>()
+
+    fun updatePractice(transform: (PracticeSettings) -> PracticeSettings) {
+        practice = transform(practice)
+        practiceEngine.settings = practice
+    }
+
+    fun toggleDrone() {
+        droneOn = !droneOn
+        playPractice()
+    }
+
+    fun toggleDrums() {
+        drumsOn = !drumsOn
+        playPractice()
+    }
+
+    /** Starts the stream when the first part is switched on and stops it with the last. */
+    private fun playPractice() {
+        practiceEngine.settings = practice
+        practiceEngine.droneOn = droneOn
+        practiceEngine.drumsOn = drumsOn
+        val wanted = droneOn || drumsOn
+        if (wanted && !audio.live.isRunning) {
+            audio.player.stop()
+            playingKey = null
+            audio.live.start(practiceEngine) {
+                scope.launch {
+                    droneOn = false
+                    drumsOn = false
+                    toast("Kein Audio-Ausgang verfügbar")
+                }
+            }
+        } else if (!wanted && audio.live.isRunning) {
+            audio.live.stop()
+        }
+    }
+
+    fun stopPractice() {
+        droneOn = false
+        drumsOn = false
+        playPractice()
+        if (practice != settings.practice) updateSettings { it.copy(practice = practice) }
+    }
+
+    fun setBpm(bpm: Int) = updatePractice { it.copy(bpm = bpm.coerceIn(PracticeSettings.MIN_BPM, PracticeSettings.MAX_BPM)) }
+
+    /** Tap tempo: the average of the last few taps; a pause of two seconds starts over. */
+    fun tapTempo(now: Long = currentTimeMillis()) {
+        if (taps.isNotEmpty() && now - taps.last() > 2000) taps.clear()
+        taps.addLast(now)
+        while (taps.size > 5) taps.removeFirst()
+        if (taps.size >= 2) setBpm(((taps.size - 1) * 60_000.0 / (taps.last() - taps.first())).roundToInt())
+    }
+
+    // endregion
+
     // region keys (desktop)
 
     fun onKey(key: KeyCommand): Boolean {
         if (key == KeyCommand.ESCAPE) return back()
+        if (screen == Screen.Practice) {
+            when (key) {
+                KeyCommand.SPACE -> toggleDrums()
+                KeyCommand.DRONE -> toggleDrone()
+                KeyCommand.TAP -> tapTempo()
+                KeyCommand.FASTER -> setBpm(practice.bpm + 1)
+                KeyCommand.SLOWER -> setBpm(practice.bpm - 1)
+                else -> return false
+            }
+            return true
+        }
         if (audioEditor != null) {
             if (key != KeyCommand.SPACE) return false
             previewAudio()
