@@ -46,7 +46,7 @@ fun HelpScreen(vm: AppViewModel) {
                     )
                     Mode(
                         "Üben",
-                        "Drone auf jedem Grundton (Sinus, Orgel, Fläche, Tanpura) und Drums mit 17 Grooves und sechs Drumsets zum Mitspielen.",
+                        "Stimmgerät wie Choona, auch in Vierteltönen und anderen Mikroton-Teilungen, mit Gitarren-, Bass- und eigenen Stimmungen. Drone auf jedem Grundton (Sinus, Orgel, Fläche, Tanpura), Drums mit 17 Grooves und sechs Drumsets zum Mitspielen, ein Looper (einmal aufnehmen, läuft im Takt der Drums endlos weiter, mit Overdub obendrauf), ein Timer, der nach x Minuten alles ausschaltet – es spielt auch im Hintergrund weiter – und ein Vibrato-Trainer: Linie aus Punkten wie in Reaper (klicken, ziehen, ⇧ für steil, Doppelklick löscht), Vibrato darauf einstellen, anhören und nachmachen – aufgenommen und ausgewertet oder live ohne Aufnahme.",
                         Palette.practice,
                     )
                     Mode(
@@ -101,6 +101,10 @@ fun HelpScreen(vm: AppViewModel) {
                         Text("Üben", fontWeight = FontWeight.SemiBold, color = Palette.practice)
                         KeyRow("Leertaste · D", "Drums · Drone an/aus")
                         KeyRow("T · ↑ ↓", "Tempo tippen · Tempo ±1")
+                        KeyRow("V · G", "Vibrato · nur den Ton vorspielen")
+                        KeyRow("R · Z", "Vibrato nachmachen (Aufnahme an/aus) · Zufall")
+                        KeyRow("L", "Looper: aufnehmen · Loop setzen · an/aus")
+                        KeyRow("O · ${if (vm.platform.macKeys) "⌘Z" else "Strg+Z"}", "Overdub an/aus · letzte Schicht weg")
                         Spacer(Modifier.height(10.dp))
                         KeyRow("Esc", "zurück")
                     }

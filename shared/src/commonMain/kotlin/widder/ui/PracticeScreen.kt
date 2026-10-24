@@ -1,6 +1,10 @@
 package widder.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,14 +46,20 @@ private val accent = Palette.practice
 @Composable
 fun PracticeScreen(vm: AppViewModel) {
     Column(Modifier.fillMaxSize()) {
-        TopBar("Üben", vm::back, subtitle = "Drone und Drums zum Mitspielen")
+        TopBar("Üben", vm::back, subtitle = "Stimmgerät, Visualisieren, Drone, Drums, Looper, Vibrato")
         Centered {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
+                AudioDevicesLine(vm)
+                TimerPanel(vm)
+                TunerPanel(vm)
+                PitchMonitorPanel(vm)
                 DronePanel(vm)
                 DrumPanel(vm)
+                LooperPanel(vm)
+                VibratoPanel(vm)
                 if (vm.platform.keyboard) {
                     Text(
-                        "Leertaste: Drums an/aus · D: Drone an/aus · T: Tempo tippen · ↑ ↓: Tempo",
+                        "Leertaste: Drums an/aus · D: Drone an/aus · T: Tempo tippen · ↑ ↓: Tempo · V / G: Vibrato / Ton vorspielen · R: nachmachen · Z: Zufall · L: Looper · O: Overdub",
                         Modifier.padding(top = 14.dp, start = 4.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -94,8 +104,11 @@ private fun DronePanel(vm: AppViewModel) {
         LabeledSlider("Lautstärke", "${(p.droneVolume * 100).roundToInt()} %", p.droneVolume, 0f..1f, accent) { v ->
             vm.updatePractice { it.copy(droneVolume = (v * 100).roundToInt() / 100f) }
         }
-        Label("Stimmton a′")
-        Choices(listOf(432, 440, 442, 443), p.tuning, { "$it Hz" }, accent) { t -> vm.updatePractice { it.copy(tuning = t) } }
+        if (p.division != 12) {
+            Label("Feinstimmung · ${divisionName(p.division)}")
+            Choices(microSteps(p.division), p.droneCents, ::centsLabel, accent) { c -> vm.updatePractice { it.copy(droneCents = c) } }
+        }
+        ConcertPitch(vm)
     }
 }
 
@@ -170,4 +183,62 @@ private fun BeatDots(vm: AppViewModel, beats: Int) {
 @Composable
 private fun Label(text: String) {
     Text(text, Modifier.padding(top = 12.dp, bottom = 6.dp), style = MaterialTheme.typography.bodyMedium)
+}
+
+/** The concert pitch a′: chips of the user's own standards, a field for any value, and saving or dropping one. */
+@Composable
+fun ConcertPitch(vm: AppViewModel) {
+    val p = vm.practice
+    var text by remember(p.tuning) { mutableStateOf(hz(p.tuning)) }
+    Label("Stimmton a′")
+    Choices(p.tuningPresets.sorted(), p.tuning, { "${hz(it)} Hz" }, accent) { t -> vm.updatePractice { it.copy(tuning = t) } }
+    Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            text,
+            { value ->
+                text = value
+                value.replace(',', '.').toDoubleOrNull()?.takeIf { it in 300.0..500.0 }?.let { t -> vm.updatePractice { it.copy(tuning = t) } }
+            },
+            Modifier.width(140.dp),
+            singleLine = true,
+            suffix = { Text("Hz") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            isError = text.replace(',', '.').toDoubleOrNull()?.let { it !in 300.0..500.0 } ?: true,
+        )
+        Spacer(Modifier.weight(1f))
+        if (p.tuning in p.tuningPresets) {
+            if (p.tuningPresets.size > 1) {
+                SmallButton("Aus Standards entfernen", { vm.updatePractice { it.copy(tuningPresets = it.tuningPresets - it.tuning) } }, color = accent)
+            }
+        } else {
+            SmallButton("Als Standard speichern", { vm.updatePractice { it.copy(tuningPresets = it.tuningPresets + it.tuning) } }, color = accent)
+        }
+    }
+}
+
+/** 440.0 as "440", 438.5 as "438,5". */
+internal fun hz(value: Double): String {
+    val tenths = kotlin.math.round(value * 10).toLong()
+    return if (tenths % 10 == 0L) "${tenths / 10}" else "${tenths / 10},${kotlin.math.abs(tenths % 10)}"
+}
+
+/** The steps of [division] within a semitone either way, in cents. */
+internal fun microSteps(division: Int): List<Int> {
+    val step = 1200.0 / division
+    val n = (100 / step - 1e-6).toInt()
+    return (-n..n).map { kotlin.math.round(it * step).toInt() }
+}
+
+internal fun centsLabel(c: Int): String = when {
+    c == 0 -> "auf dem Ton"
+    c > 0 -> "+$c ct"
+    else -> "−${-c} ct"
+}
+
+internal fun divisionName(division: Int): String = when (division) {
+    12 -> "Halbtöne"
+    24 -> "Vierteltöne"
+    36 -> "Dritteltöne"
+    48 -> "Achteltöne"
+    else -> "$division-EDO"
 }

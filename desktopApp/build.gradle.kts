@@ -50,10 +50,12 @@ compose.desktop {
             macOS {
                 bundleID = "de.privat.widder"
                 iconFile.set(project.file("icon.icns"))
+                entitlementsFile.set(project.file("entitlements.plist"))
+                runtimeEntitlementsFile.set(project.file("entitlements.plist"))
                 infoPlist {
                     extraKeysRawXml = """
                         <key>NSMicrophoneUsageDescription</key>
-                        <string>Widder nimmt Audio für deine Karteikarten auf.</string>
+                        <string>Widder nimmt Audio für Karteikarten, den Looper, den Vibrato-Trainer und das Stimmgerät auf.</string>
                     """.trimIndent()
                 }
             }

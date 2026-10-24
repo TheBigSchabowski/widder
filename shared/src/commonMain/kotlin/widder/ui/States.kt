@@ -1,11 +1,14 @@
 package widder.ui
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
+import widder.audio.Looper
 import widder.audio.Pcm
+import widder.audio.VibratoResult
 import widder.core.Card
 import widder.core.ChordRound
 import widder.core.Clip
@@ -14,6 +17,7 @@ import widder.core.Grade
 import widder.core.IncomingFile
 import widder.core.PickKind
 import widder.core.Progress
+import widder.core.VibratoSettings
 
 sealed interface Screen {
     data object Home : Screen
@@ -26,7 +30,7 @@ sealed interface Screen {
     data object Tiles : Screen
     data object Help : Screen
 
-    /** Drone and drums to practise with. */
+    /** Drone, drums and the vibrato trainer. */
     data object Practice : Screen
 
     /** One field of the gesture grid, counted row by row. */
@@ -54,9 +58,18 @@ interface PlatformHooks {
     /** Key combinations written the Mac way (⌃B) rather than spelled out (Strg+B). */
     val macKeys: Boolean get() = true
 
+    /**
+     * Practice sound is playing or the looper records ([audio] says what) or all has stopped
+     * (null): Android keeps the app running in the background with a notification meanwhile.
+     */
+    fun backgroundAudio(audio: BackgroundAudio?) = Unit
+
     /** Folders the user can see; null where decks cannot be linked to one. */
     val folders: widder.core.FolderAccess? get() = null
 }
+
+/** What goes on while the app may be in the background: [text] for the notification, and whether the microphone is in use. */
+data class BackgroundAudio(val text: String, val microphone: Boolean = false)
 
 object NoPlatform : PlatformHooks {
     override fun pickFiles(kind: PickKind, onResult: (List<IncomingFile>) -> Unit) = onResult(emptyList())
@@ -162,4 +175,70 @@ class Confirm(val title: String, val text: String, val action: String, val run: 
 class RewardImages(val sharp: ImageBitmap, val blurred: ImageBitmap)
 
 /** Keys the desktop app forwards while learning. */
-enum class KeyCommand { SPACE, ENTER, ONE, TWO, THREE, FOUR, UNDO, REPLAY, EDIT, KEYBOARD, SHUFFLE, BACKSPACE, ESCAPE, DRONE, TAP, FASTER, SLOWER }
+enum class KeyCommand { SPACE, ENTER, ONE, TWO, THREE, FOUR, UNDO, REPLAY, EDIT, KEYBOARD, SHUFFLE, BACKSPACE, ESCAPE, DRONE, TAP, FASTER, SLOWER, VIBRATO, TONE, RANDOM, LOOP, OVERDUB }
+
+/** One go at copying the model vibrato: the pitch as heard while recording, then what was measured. */
+class VibratoTake(val target: VibratoSettings, val tuning: Double, val started: Long) {
+    /** Seconds since the start and cents from the note (NaN while nothing clear sounds), one per look. */
+    val live = mutableStateListOf<Pair<Float, Float>>()
+    var recording by mutableStateOf(true)
+    var analysing by mutableStateOf(false)
+    var result by mutableStateOf<VibratoResult?>(null)
+    var pcm: Pcm? = null
+}
+
+enum class LoopPhase { RECORDING, CLOSING, READY }
+
+/** The looper's one recording: while it is made, while it waits for the bar line, then ready to repeat. */
+class LoopTake(
+    /** Set when recorded to the drums: the loop is cut on their bar lines. */
+    val sync: Looper.Sync?,
+    val started: Long,
+) {
+    var phase by mutableStateOf(LoopPhase.RECORDING)
+    var seconds by mutableStateOf(0.0)
+    /** Bars recorded so far (from the loop's first bar line), when locked to the drums. */
+    var bar by mutableStateOf(0.0)
+    /** Bars the loop spans; 0 for a free loop. */
+    var bars by mutableStateOf(0)
+    var pcm: Pcm? = null
+    /** The first recording and each overdub on top of it. */
+    var layers by mutableStateOf(1)
+    var overdubbing by mutableStateOf(false)
+    /** The loop before each overdub, newest last. */
+    val undo = ArrayDeque<FloatArray>()
+}
+
+/** Playing along with the vibrato trainer, live: the recent pitch and the swing measured just now. */
+class VibratoLive(val started: Long) {
+    /** Seconds since the start and cents from the note (NaN while nothing clear sounds); only the last pass is kept. */
+    val trace = mutableStateListOf<Pair<Float, Float>>()
+    var result by mutableStateOf<VibratoResult?>(null)
+
+    /** The last [RECENT] readings (3 s), for measuring the swing. */
+    val recent = ArrayDeque<Float>()
+
+    /** Adds a point and forgets what is older than one pass of [seconds]. */
+    fun add(t: Float, cents: Float, seconds: Float) {
+        recent.addLast(cents)
+        while (recent.size > RECENT) recent.removeFirst()
+        trace += t to cents
+        val cut = trace.indexOfFirst { it.first >= t - seconds }
+        if (cut > 0) trace.removeRange(0, cut)
+    }
+
+    companion object {
+        const val RECENT = 300
+    }
+}
+
+/** The pitch picture's last minute: seconds since the start and the pitch as a MIDI number with fraction (NaN = silence). */
+class PitchMonitor {
+    val trace = mutableStateListOf<Pair<Float, Float>>()
+
+    fun add(t: Float, pitch: Float, keep: Float) {
+        trace += t to pitch
+        val cut = trace.indexOfFirst { it.first >= t - keep }
+        if (cut > 0) trace.removeRange(0, cut)
+    }
+}

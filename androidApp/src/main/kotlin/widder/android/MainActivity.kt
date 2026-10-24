@@ -21,6 +21,7 @@ import widder.core.PickKind
 import widder.core.Store
 import widder.ui.App
 import widder.ui.AppViewModel
+import widder.ui.BackgroundAudio
 import widder.ui.PlatformHooks
 import widder.ui.Screen
 
@@ -28,7 +29,7 @@ class MainActivity : ComponentActivity() {
     private val viewModel by lazy {
         // One per process: the activity is not recreated on rotation (see the manifest), and a
         // file shared from another app reaches the running instance through onNewIntent.
-        holder ?: AppViewModel(Store(DirectoryStore(filesDir)), androidAudioSystem(cacheDir), Hooks).also { holder = it }
+        holder ?: AppViewModel(Store(DirectoryStore(filesDir)), androidAudioSystem(applicationContext), Hooks).also { holder = it }
     }
 
     private var pendingPick: ((List<IncomingFile>) -> Unit)? = null
@@ -74,6 +75,17 @@ class MainActivity : ComponentActivity() {
         openTree.launch(null)
     }
 
+    // A foreground notification posted before the permission stays hidden: post it again.
+    private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) Hooks.repost() }
+
+    /** Once per run: without the permission the background notification (and its stop button) stays hidden. */
+    private fun askForNotifications() {
+        if (Build.VERSION.SDK_INT < 33 || askedForNotifications) return
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+        askedForNotifications = true
+        notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
     private val microphone = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         pendingMic?.invoke(granted)
         pendingMic = null
@@ -103,6 +115,23 @@ class MainActivity : ComponentActivity() {
 
         override fun saveFile(suggestedName: String, bytes: ByteArray, onDone: (String?) -> Unit) {
             current?.saveFile(suggestedName, bytes, onDone) ?: onDone(null)
+        }
+
+        /** The last state asked for, so the service is only started or stopped when it changes. */
+        private var background: BackgroundAudio? = null
+        var appContext: android.content.Context? = null
+
+        fun repost() {
+            val context = appContext ?: return
+            background?.let { PracticeService.update(context, it) }
+        }
+
+        override fun backgroundAudio(audio: BackgroundAudio?) {
+            if (audio == background) return
+            background = audio
+            if (audio != null) current?.askForNotifications()
+            val context = appContext ?: return
+            PracticeService.update(context, audio)
         }
     }
 
@@ -165,6 +194,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         current = this
+        Hooks.appContext = applicationContext
         enableEdgeToEdge()
         setContent {
             val vm = viewModel
@@ -200,5 +230,11 @@ class MainActivity : ComponentActivity() {
     companion object {
         private var holder: AppViewModel? = null
         private var current: MainActivity? = null
+        private var askedForNotifications = false
+
+        /** The notification's stop button and a swipe from the recent apps. */
+        fun stopPracticeSound() {
+            holder?.stopPracticeSound()
+        }
     }
 }

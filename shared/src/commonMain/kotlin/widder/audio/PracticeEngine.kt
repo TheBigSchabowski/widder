@@ -9,8 +9,18 @@ import kotlin.math.exp
 import kotlin.math.pow
 import kotlin.math.sin
 
+/** One recorded loop: mono samples at [rate], played over and over. */
+class Loop(
+    val samples: FloatArray,
+    val rate: Int,
+    /** Bars it spans, locked to the bar clock; 0 = free, it just repeats. */
+    val bars: Int = 0,
+    /** The bar number (see [PracticeEngine.Clock.bar]) where the loop begins. */
+    val origin: Long = 0,
+)
+
 /**
- * The practice mode's sound: a drone and a drum machine, rendered block by block on the audio
+ * The practice mode's sound: a drone, a drum machine and a loop, rendered block by block on the audio
  * thread. The UI only swaps [settings] and flips [droneOn] / [drumsOn]; every change is faded, so
  * a new root note or tempo never clicks.
  *
@@ -21,6 +31,24 @@ class PracticeEngine(private val samples: () -> DrumSamples? = { null }) : LiveS
     @Volatile var settings = PracticeSettings()
     @Volatile var droneOn = false
     @Volatile var drumsOn = false
+    @Volatile var loop: Loop? = null
+    @Volatile var loopOn = false
+
+    /** Where the bar clock stood at the end of the last block. */
+    class Clock(
+        /** Frames rendered since the output opened. */
+        val frame: Long,
+        /** Bars since the clock started, the fraction is the position in the bar. */
+        val bar: Double,
+        val framesPerBar: Double,
+        val rate: Int,
+        val running: Boolean,
+        /** Where the loop stands, in its samples (see [loopAt]). */
+        val loop: Double = 0.0,
+    )
+
+    @Volatile var clock = Clock(0, 0.0, 1.0, Synth.SAMPLE_RATE, false)
+        private set
 
     /** The beat being played (0 = one), -1 while the drums are off; for the UI. */
     @Volatile var beat = -1
@@ -33,6 +61,8 @@ class PracticeEngine(private val samples: () -> DrumSamples? = { null }) : LiveS
 
     // Bar clock.
     private var phase = 0.0
+    private var bars = 0L
+    private var frames = 0L
     private var lastStep = -1
     private var lastSteps = 0
     private var clockRunning = false
@@ -55,6 +85,11 @@ class PracticeEngine(private val samples: () -> DrumSamples? = { null }) : LiveS
     private var drumLevel = 0f
     private var droneLevel = 0f
 
+    // Loop.
+    private var playingLoop: Loop? = null
+    private var loopPos = 0.0
+    private var loopLevel = 0f
+
     override fun prepare(sampleRate: Int) {
         rate = sampleRate
         val bundled = samples()
@@ -67,6 +102,11 @@ class PracticeEngine(private val samples: () -> DrumSamples? = { null }) : LiveS
     /** Back to silence, the bar clock to one. */
     fun reset() {
         phase = 0.0
+        bars = 0
+        frames = 0
+        playingLoop = null
+        loopPos = 0.0
+        loopLevel = 0f
         lastStep = -1
         lastSteps = 0
         clockRunning = false
@@ -85,32 +125,68 @@ class PracticeEngine(private val samples: () -> DrumSamples? = { null }) : LiveS
         val groove = Grooves.find(s.groove, s.meter)
         val kit = kits[s.kit]
         val framesPerBar = rate * 60.0 / s.bpm.coerceIn(PracticeSettings.MIN_BPM, PracticeSettings.MAX_BPM) * s.meter.beats
-        if (drums && !clockRunning) {
+        val l = loop
+        if (l !== playingLoop) {
+            playingLoop = l
+            loopPos = 0.0
+        }
+        val locked = l != null && l.bars > 0 && loopOn
+        // The bar clock runs for the drums and for a loop locked to it; started anew, it begins on
+        // the loop's first bar, so loop and drums come in together.
+        val running = drums || locked
+        if (running && !clockRunning) {
             phase = 0.0
+            bars = if (l != null && l.bars > 0) l.origin else 0
             lastStep = -1
         }
-        clockRunning = drums
+        clockRunning = running
         if (!drums) beat = -1
         updateDrone(s)
         val smooth = 1f / (0.03f * rate)
         val drumTarget = s.drumVolume.coerceIn(0f, 1f)
         val droneTarget = if (droneOn) s.droneVolume.coerceIn(0f, 1f) else 0f
+        val loopTarget = if (loopOn && l != null) s.loopVolume.coerceIn(0f, 1f) else 0f
         val lfoStep = 2 * PI * 0.13 / rate
         for (i in 0 until frames) {
-            if (drums && kit != null) {
-                tick(groove, kit, s)
+            if (running) {
+                if (drums && kit != null) tick(groove, kit, s)
                 phase += 1.0 / framesPerBar
-                if (phase >= 1.0) phase -= 1.0
+                if (phase >= 1.0) {
+                    phase -= 1.0
+                    bars++
+                }
             }
             if (s.sound == DroneSound.TANPURA && droneOn) schedulePlucks(s)
             drumLevel += (drumTarget - drumLevel) * smooth
             droneLevel += (droneTarget - droneLevel) * smooth
             lfo += lfoStep
-            val out = limit(voices() * drumLevel + drone() * droneLevel)
+            loopLevel += (loopTarget - loopLevel) * smooth
+            val looped = if (l != null && loopLevel > 0.0001f) loopSample(l, locked) * loopLevel else 0f
+            val out = limit(voices() * drumLevel + drone() * droneLevel + looped)
             left[i] = out
             right[i] = out
         }
         if (lfo > 2 * PI) lfo -= 2 * PI
+        this.frames += frames
+        clock = Clock(this.frames, bars + phase, framesPerBar, rate, clockRunning, if (l != null) loopAt(l, locked) else 0.0)
+    }
+
+    /** The loop's position in its samples: from the bar clock when locked, else where it has got to. */
+    private fun loopAt(l: Loop, locked: Boolean): Double =
+        if (locked) (((bars - l.origin) % l.bars + l.bars) % l.bars + phase) / l.bars * l.samples.size else loopPos
+
+    /** The loop's next sample: from the bar clock when locked, else simply the next one. */
+    private fun loopSample(l: Loop, locked: Boolean): Float {
+        val n = l.samples.size
+        if (n == 0) return 0f
+        val pos = loopAt(l, locked)
+        if (!locked) {
+            loopPos += l.rate.toDouble() / rate
+            if (loopPos >= n) loopPos -= n
+        }
+        val j = pos.toInt().coerceIn(0, n - 1)
+        val f = (pos - j).toFloat()
+        return l.samples[j] + (l.samples[(j + 1) % n] - l.samples[j]) * f
     }
 
     // region drums
@@ -207,7 +283,7 @@ class PracticeEngine(private val samples: () -> DrumSamples? = { null }) : LiveS
     /** Which tones the settings ask for; a change fades the old ones out and the new ones in. */
     private fun updateDrone(s: PracticeSettings) {
         val pitches = dronePitches(s)
-        val key: List<Any>? = if (droneOn && s.sound != DroneSound.TANPURA) listOf(s.sound, s.tuning, pitches) else null
+        val key: List<Any>? = if (droneOn && s.sound != DroneSound.TANPURA) listOf(s.sound, s.tuning, s.droneCents, pitches) else null
         if (key == droneKey) return
         droneKey = key
         for (t in tones) t.target = 0f
@@ -219,7 +295,7 @@ class PracticeEngine(private val samples: () -> DrumSamples? = { null }) : LiveS
                 7 -> 0.15f
                 else -> 0.13f
             }
-            tones += Tone(table, frequency(p, s.tuning) * TABLE_SIZE / rate, amp, k * 2.1)
+            tones += Tone(table, frequency(p, s.tuning, s.droneCents) * TABLE_SIZE / rate, amp, k * 2.1)
         }
     }
 
@@ -248,7 +324,7 @@ class PracticeEngine(private val samples: () -> DrumSamples? = { null }) : LiveS
         if (pluckClock-- > 0) return
         val pitch = tanpuraStrings(s)[pluckIndex]
         if (plucks.size >= MAX_PLUCKS) plucks.removeAt(0)
-        plucks += Pluck(frequency(pitch, s.tuning), rate, if (pluckIndex == 3) 0.20f else 0.15f)
+        plucks += Pluck(frequency(pitch, s.tuning, s.droneCents), rate, if (pluckIndex == 3) 0.20f else 0.15f)
         pluckClock = ((if (pluckIndex == 3) 1.6 else 0.75) * rate).toInt()
         pluckIndex = (pluckIndex + 1) % 4
     }
@@ -341,6 +417,9 @@ class PracticeEngine(private val samples: () -> DrumSamples? = { null }) : LiveS
             return listOf(if (s.fifth) root - 5 else root + 12, root + 12, root + 12, root)
         }
 
-        fun frequency(pitch: Int, tuning: Int): Double = tuning * 2.0.pow((pitch - 69) / 12.0)
+        fun frequency(pitch: Int, tuning: Double): Double = tuning * 2.0.pow((pitch - 69) / 12.0)
+
+        /** [pitch] [cents] off, for microtones. */
+        fun frequency(pitch: Int, tuning: Double, cents: Int): Double = frequency(pitch, tuning) * 2.0.pow(cents / 1200.0)
     }
 }

@@ -68,7 +68,7 @@ Verstanden werden u. a. `m min - moll`, `7 maj7 M7 Δ`, `m7 m7b5 ø dim dim7 aug
 Slash-Akkorde (`C/E`) und deutsche Namen (`H`, `Fis`, `Es`, `As`, `Cism`, `Des-Dur`).
 In den Einstellungen: „Deutsche Notennamen“ (B = Bb).
 
-## Üben: Drone und Drums
+## Üben: Stimmgerät, Drone, Drums, Looper und Vibrato
 
 Der dritte Weg auf dem Startbildschirm hat keine Karten – nur Begleitung zum Mitspielen. Drone und
 Drums laufen unabhängig voneinander (jeweils eigener Play-Knopf) und lassen sich während des
@@ -90,7 +90,105 @@ BPM in 6/8 zählt Achtel. Drumsets: **Akustik** (die Black-Pearl-Samples aus Nic
 Tanpura zupft wie das Original vier Saiten im Kreis: Pa (die Quinte, ohne „Quinte dazu“ die
 Oktave), zweimal das hohe Sa, dann das tiefe Sa. Die Einstellungen bleiben gespeichert, gespielt
 wird nur, solange „Üben“ offen ist. Am Mac/unter Linux: Leertaste = Drums an/aus, D = Drone, T =
-Tempo tippen, ↑ ↓ = Tempo. Übezeit zählt nicht für die Bildbelohnung.
+Tempo tippen, ↑ ↓ = Tempo, L = Looper, O = Overdub, ⌘Z = letzte Overdub-Schicht weg. Übezeit zählt nicht für die Bildbelohnung.
+
+**Hintergrund und Timer:** Drums, Drone und Loop spielen weiter, wenn man die App verlässt oder
+den Bildschirm ausschaltet (Android: Benachrichtigung „Widder übt“ mit Stopp-Knopf; ein Wisch aus
+den letzten Apps beendet den Ton). Nur das Verlassen von „Üben“ in der App stoppt sie. Der **Timer**
+(5–60 min) schaltet alles aus, gezählt ab dem ersten Ton.
+
+### Looper
+
+Einmal aufnehmen, dann wiederholt es sich endlos – z. B. Gitarre übers Mikrofon. Rote Taste (oder
+**L**) startet die Aufnahme, nochmal drücken setzt den Loop, danach schaltet sie ihn an und aus.
+
+- **Laufen die Drums**, ist der Loop an ihren Takt gebunden: er beginnt auf der nächsten Eins (oder
+  der gerade vergangenen, wenn man knapp zu spät gedrückt hat) und endet auf einer Taktlinie – wer
+  kurz nach der Eins „Loop setzen“ drückt, schließt dort, sonst nimmt Widder bis zur nächsten Eins
+  weiter auf. Der Loop bleibt im Groove, auch wenn die Drums aus- und wieder angehen.
+- **Ohne Drums** ist der Loop genau so lang, wie man gespielt hat.
+- **Overdub** (rote „+“-Taste neben dem Loop, oder **O**): während der Loop läuft dazuspielen – Runde
+  für Runde kommt es obendrauf, bis man die Taste wieder drückt. Jede Overdub-Runde ist eine
+  **Schicht**; „Letzte Schicht weg“ (⌘Z) nimmt sie wieder heraus (bis zu 8 Schritte). Das Mikrofon
+  wird dabei an genau die Stelle im Loop gelegt, die man beim Spielen gehört hat, auch bei
+  geändertem Tempo eines Loops im Takt der Drums; Anfang und Ende jedes Overdubs werden kurz
+  eingeblendet, damit nichts knackt. Ein angehaltener Loop startet mit dem Overdub.
+- Die Naht wird über 15 ms überblendet (was nach dem Ende kam, läuft in den Anfang), damit nichts
+  knackt. **Latenz-Ausgleich** (Standard 150 ms) gleicht Ausgabe- und Mikrofonverzögerung aus –
+  für Loops im Takt der Drums wie für Overdubs. **„Latenz messen“** spielt sechs Klicks und hört
+  über das Mikrofon, wann sie ankommen (ohne Kopfhörer, kurz still sein); am Handy ist die
+  Verzögerung meist deutlich größer als am Mac. Zum Spielen dann Kopfhörer, sonst nimmt das
+  Mikrofon Drums und Loop mit auf.
+- Auf Android läuft eine Aufnahme oder ein Overdub auch bei ausgeschaltetem Bildschirm weiter (die
+  Benachrichtigung „Widder übt“ nutzt dann das Mikrofon).
+- „Als WAV speichern“ (mit allen Schichten), „Neu aufnehmen“, „Löschen“, Lautstärke.
+
+### Stimmgerät
+
+Wie [Choona](https://github.com/rohankhayech/Choona), mit Mikrotönen: **chromatisch** in einer wählbaren
+Teilung der Oktave – Halbtöne, **Vierteltöne**, Dritteltöne, Achteltöne oder 19-, 22-, 31-, 53-EDO
+(der Ton heißt dann z. B. „A +50 ct“) – oder auf die **Saiten einer Stimmung**: Gitarre (Standard, Drop D,
+Halbton/Ganzton tiefer, Drop C, DADGAD, Open D/G/E, 7-Saiter), Bass (4/5 Saiten, Drop D), Ukulele,
+Bariton-Ukulele, Geige/Mandoline, Bratsche, Cello. Die Saite wird erkannt; antippen spielt sie vor und
+hält sie fest. **Eigene Stimmungen** als Notenliste, auch mikrotonal: `D2 A2 D3 G3 A3+50 D4`. Abweichung
+in Cent oder Halbtönen, Erkennung bis 28 Hz (tiefe H-Saite am Bass).
+
+**Stimmton a′** gilt für Stimmgerät, Drone und Vibrato: als Chip oder frei eingetippt (300–500 Hz,
+auch 438,5), eigene Standards lassen sich speichern und entfernen. Die Drone lässt sich in der
+gewählten Teilung **mikrotonal verstimmen** (z. B. einen Viertelton höher).
+
+### Visualisieren
+
+„Wo singe ich?“ zeigt laufend die eigene Tonhöhe – Stimme oder Instrument – auf einer Klavierrolle
+(5, 10, 20 oder 60 s Zeitfenster, neueste Stelle rechts), mit Ton, Cent-Abweichung und Hz. Die Töne
+der Drone (Grundton, Quinte) sind als lila Linien hervorgehoben, Mikroton-Stufen als feine Linien.
+
+### Audio-Geräte (Mac, Linux und Android)
+
+In den Einstellungen: **Eingang** (eingebautes Mikrofon oder Audio-Interface), **Kanal** des Eingangs
+(alle gemischt oder z. B. „Eingang 1“ für die Gitarre am Interface), **Ausgang**, dazu ein
+**Eingangstest** mit Pegel und erkanntem Ton. Am Handy: Mikrofon, Lautsprecher, Kopfhörer, Headset,
+Bluetooth-Kopfhörer und ein Interface an USB-C (nach dem Einstecken „Geräte neu suchen“); kennt ein
+Eingang den gewählten Kanal nicht, nimmt Widder alle gemischt. Die Mac-App hat jetzt die Berechtigung
+`com.apple.security.device.audio-input` – ohne sie lieferte macOS nur Stille, ohne zu fragen.
+
+### Vibrato-Trainer
+
+Eine Vorgabe anhören und nachmachen – aufnehmen und auswerten oder **live mitspielen**: dann läuft die
+eigene Tonhöhe ohne Aufnahme Durchgang für Durchgang über die Vorgabe (mit Cursor), und Geschwindigkeit,
+Breite und Richtung der letzten 3 Sekunden stehen darunter. Die Vorgabe ist eine **Linie** mit einem
+**Vibrato** obendrauf:
+
+- **Linie** wie eine Hüllkurve in Reaper: Vorlagen *Gerade, Steigend, Fallend, Von unten* (Scoop),
+  *Fall-off, Bending, Bogen*, oder unter „Linie bearbeiten“ selbst: **klicken** setzt einen Punkt,
+  **ziehen** verschiebt ihn (weicher Übergang), **mit ⇧ Shift ziehen** macht den Weg dorthin **steil**,
+  **Doppelklick** oder langes Drücken löscht. Für den gewählten Punkt: Übergang *weich / gerade / steil*.
+  Punkte rasten auf Töne ein (bzw. auf die Mikroton-Teilung, z. B. Vierteltöne); die Achse zeigt
+  Notennamen oder Hz.
+- **Vibrato**: **Breite** 0–200 Cent (vom tiefsten zum höchsten Punkt, 0 = nur die Linie),
+  **Geschwindigkeit** 2–9 Hz, **Vibrato ab** (setzt nach x Sekunden ein und schwillt an) und
+  **Richtung** – *nach oben* (die Linie ist der tiefste Punkt, wie ein Bending), *um den Ton* oder
+  *nach unten*.
+- Dazu Ton (alle 12, Oktave 2–5), Klang **Streicher / Stimme / Flöte / Sinus** und Länge 2–8 s.
+
+**Eigenes Vibrato einsingen:** Nach einer Aufnahme „Als Vorgabe übernehmen“ (oder im Live-Modus „Die
+letzten 3 Sekunden …“) macht aus der gesungenen Tonhöhenkurve die Linie – nur so viele Punkte, dass sie
+auf 3 Cent genau bleibt, weich zwischen Berg und Tal – auf dem nächsten Ton. Widder spielt sie dann mit
+dem gewählten Klang nach (jetzt auch **Orgel**), und sie lässt sich im Editor weiter bearbeiten.
+
+Die Tonhöhe wird alle 10 ms Audio gemessen, nach der Uhr der Samples selbst: auch Geräte, die ihre
+Samples in großen Paketen liefern (wie manche am Mac), ergeben eine glatte Kurve.
+
+„Nur den Ton“ spielt die Note gerade. **Zufall** würfelt Vibrato, Einsatz und (jedes zweite Mal)
+eine Linie, verdeckt alles und spielt es vor – dann nach Gehör nachmachen; aufgedeckt wird nach der
+Auswertung (oder mit „Aufdecken“).
+
+Beim Aufnehmen zeigt Widder die eigene Tonhöhe live (Tonhöhenerkennung mit YIN, eine Oktave höher
+oder tiefer zählt genauso). Danach misst er Geschwindigkeit (aus der Autokorrelation der
+Tonhöhenkurve), Breite und Richtung des Vibratos, die Tonhöhe im Schnitt und den **Verlauf** (wie weit
+die Mittellinie von der Linie der Vorgabe abweicht, 95 % der Zeit), vergleicht mit der Vorgabe und gibt
+Punkte (0–100). Der Versuch lässt sich anhören. Tasten: V / G = Vibrato / Ton vorspielen, R = Aufnahme
+an/aus, Z = Zufall.
 
 ## Ordner: Dateien von außen prüfen und tauschen
 
