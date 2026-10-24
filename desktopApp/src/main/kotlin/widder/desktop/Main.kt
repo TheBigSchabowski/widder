@@ -173,6 +173,11 @@ private fun handleKey(vm: AppViewModel, event: KeyEvent): Boolean {
         event.key == Key.Backspace -> KeyCommand.BACKSPACE
         event.key == Key.D -> KeyCommand.DRONE
         event.key == Key.T -> KeyCommand.TAP
+        event.key == Key.V -> KeyCommand.VIBRATO
+        event.key == Key.G -> KeyCommand.TONE
+        event.key == Key.Z -> KeyCommand.RANDOM
+        event.key == Key.L -> KeyCommand.LOOP
+        event.key == Key.O -> KeyCommand.OVERDUB
         event.key == Key.DirectionUp -> KeyCommand.FASTER
         event.key == Key.DirectionDown -> KeyCommand.SLOWER
         else -> null

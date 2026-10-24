@@ -37,11 +37,23 @@ fun main() {
         override val keyboard = true
     }
 
-    fun render(name: String, keys: Boolean = false, interact: (ImageComposeScene) -> Unit = {}, setup: (AppViewModel) -> Unit) {
+    // Devices as a Mac with an interface would list them.
+    val devices = SilentAudio.system.let {
+        widder.audio.AudioSystem(
+            it.player, it.recorder, it.decoder,
+            devices = object : widder.audio.AudioDevices {
+                override fun inputs() = listOf("MacBook Air-Mikrofon", "Rubix44")
+                override fun outputs() = listOf("MacBook Air-Lautsprecher", "Rubix44")
+                override fun use(input: String?, output: String?, channel: Int) = Unit
+            },
+        )
+    }
+
+    fun render(name: String, keys: Boolean = false, audio: widder.audio.AudioSystem = SilentAudio.system, interact: (ImageComposeScene) -> Unit = {}, setup: (AppViewModel) -> Unit) {
         for ((label, size) in sizes) {
             val dir = Files.createTempDirectory("widder").toFile()
             val vm = AppViewModel(
-                Store(DirectoryStore(dir)), SilentAudio.system, if (keys) keyboard else widder.ui.NoPlatform,
+                Store(DirectoryStore(dir)), audio, if (keys) keyboard else widder.ui.NoPlatform,
                 live = false, main = Dispatchers.Unconfined, work = Dispatchers.Unconfined, random = kotlin.random.Random(1),
             )
             setup(vm)
@@ -63,6 +75,21 @@ fun main() {
 
     render("home") {}
     render("ueben", keys = true) { it.open(Screen.Practice) }
+    render("ueben-stimmgeraet") { vm ->
+        vm.open(Screen.Practice)
+        vm.updatePractice { it.copy(division = 24, tuning = 438.5) }
+        vm.addTuning("Mein Maqam", "D2 A2 D3 G3 A3+50 D4")
+        vm.updateVibrato { it.copy(width = 0) }
+    }
+    render("einstellungen-audio", audio = devices) { vm ->
+        vm.open(Screen.Settings)
+        vm.setAudioDevices("Rubix44", null, 1)
+    }
+    render("ueben-timer") { vm ->
+        vm.open(Screen.Practice)
+        vm.setStopAfter(10)
+        vm.toggleDrums()
+    }
     render("ueben-tanpura", interact = { scene ->
         repeat(60) {
             scene.sendPointerEvent(
@@ -74,6 +101,70 @@ fun main() {
     }) { vm ->
         vm.open(Screen.Practice)
         vm.updatePractice { it.copy(sound = widder.core.DroneSound.TANPURA, meter = widder.core.Meter.SIX_EIGHT, groove = "6/8 Blues", kit = widder.core.DrumKit.CLICK) }
+    }
+    // A microphone that hands back two seconds of sound: enough for a loop.
+    val looping = SilentAudio.system.let {
+        widder.audio.AudioSystem(
+            it.player,
+            object : widder.audio.AudioRecorder {
+                override var isRecording = false
+                override fun start(): Boolean = true.also { isRecording = true }
+                override fun level() = 0f
+                override fun stop(): widder.audio.Pcm = widder.audio.Pcm(44_100, listOf(FloatArray(88_200) { kotlin.math.sin(it / 20.0).toFloat() * 0.3f }))
+                    .also { isRecording = false }
+            },
+            it.decoder,
+        )
+    }
+    for (dubbing in listOf(false, true)) {
+        render(if (dubbing) "ueben-overdub" else "ueben-looper", audio = looping, interact = { scene ->
+            repeat(if (dubbing) 24 else 27) {
+                scene.sendPointerEvent(
+                    androidx.compose.ui.input.pointer.PointerEventType.Scroll,
+                    androidx.compose.ui.geometry.Offset(300f, 600f),
+                    scrollDelta = androidx.compose.ui.geometry.Offset(0f, 10f),
+                )
+            }
+        }) { vm ->
+            vm.open(Screen.Practice)
+            vm.startLoop()
+            vm.setLoop()
+            vm.loopTake!!.layers = 3
+            vm.loopTake!!.undo.addLast(FloatArray(1))
+            vm.loopTake!!.overdubbing = dubbing
+        }
+    }
+    render("ueben-vibrato", interact = { scene ->
+        repeat(60) {
+            scene.sendPointerEvent(
+                androidx.compose.ui.input.pointer.PointerEventType.Scroll,
+                androidx.compose.ui.geometry.Offset(300f, 600f),
+                scrollDelta = androidx.compose.ui.geometry.Offset(0f, 10f),
+            )
+        }
+    }) { vm ->
+        vm.open(Screen.Practice)
+        vm.updateVibrato { it.copy(direction = widder.core.VibratoDirection.UP, width = 60, rate = 5.5f, vibratoFrom = 1f, points = widder.audio.VibratoLine.BEND.points()) }
+        // An attempt an octave lower, a bit slow, around the note instead of above it and the bend too late.
+        val sung = vm.practice.vibrato.copy(
+            octave = 2, direction = widder.core.VibratoDirection.AROUND, rate = 4.6f, width = 75, sound = widder.core.VibratoSound.VOICE,
+            points = widder.audio.VibratoLine.move(widder.audio.VibratoLine.BEND.points(), 1, 0.4f, 200f),
+        )
+        vm.tryVibrato(widder.audio.VibratoSynth.render(sung, 440.0, vibrato = true))
+    }
+    render("ueben-vibrato-malen") { vm ->
+        vm.open(Screen.Practice)
+        vm.updateVibrato {
+            it.copy(
+                width = 40, vibratoFrom = 1.5f,
+                points = widder.audio.VibratoLine.SCOOP.points() + listOf(
+                    widder.core.LinePoint(0.5f, 0f), widder.core.LinePoint(0.6f, 150f, widder.core.Bend.STEEP), widder.core.LinePoint(1f, -80f),
+                ),
+            )
+        }
+        vm.updatePractice { it.copy(division = 24) }
+        vm.toggleVibratoDrawing()
+        vm.pickLinePoint(3)
     }
     render("stapel-karten") { it.open(Screen.Decks(DeckKind.CARDS)) }
     render("stapel-akkorde") { it.open(Screen.Decks(DeckKind.CHORDS)) }

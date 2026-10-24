@@ -145,6 +145,11 @@ data class Settings(
     val shortcuts: List<Shortcut>? = null,
     /** What the practice mode played last time. */
     val practice: PracticeSettings = PracticeSettings(),
+    /** Recording device by name (Mac and Linux); null = the system's default. */
+    val audioInput: String? = null,
+    val audioOutput: String? = null,
+    /** 0 = all inputs of the device mixed, else input 1, 2 ... (an interface's guitar input). */
+    val inputChannel: Int = 0,
 )
 
 @Serializable
@@ -177,7 +182,11 @@ data class PracticeSettings(
     val fifth: Boolean = true,
     val octaveUp: Boolean = false,
     /** Concert pitch of A4 in Hz. */
-    val tuning: Int = 440,
+    val tuning: Double = 440.0,
+    /** The concert pitches offered as chips; the user adds and removes their own. */
+    val tuningPresets: List<Double> = listOf(432.0, 440.0, 442.0, 443.0),
+    /** The drone a microtone off its note, in cents (steps of [division]). */
+    val droneCents: Int = 0,
     val droneVolume: Float = 0.6f,
     val kit: DrumKit = DrumKit.ACOUSTIC,
     /** Clicks per minute: quarters, eighths in 6/8. */
@@ -187,10 +196,130 @@ data class PracticeSettings(
     val groove: String = "Rock",
     val click: Boolean = false,
     val drumVolume: Float = 0.7f,
+    val vibrato: VibratoSettings = VibratoSettings(),
+    /** Drums, drone and loop stop after this many minutes of playing; 0 = never. */
+    val stopAfter: Int = 0,
+    val loopVolume: Float = 0.9f,
+    /** Output plus input delay in ms: how late a recorded note lands after the click it was played to. */
+    val loopLatency: Int = 150,
+    /** Steps per octave for microtones: 12 = semitones, 24 = quarter tones ... (tuner, line grid, drone). */
+    val division: Int = 12,
+    val tuner: TunerSettings = TunerSettings(),
+    /** How many seconds the pitch picture shows. */
+    val monitorSeconds: Int = 10,
 ) {
     companion object {
         const val MIN_BPM = 40
         const val MAX_BPM = 240
+    }
+}
+
+@Serializable
+enum class VibratoDirection(val label: String) { UP("Nach oben"), AROUND("Um den Ton"), DOWN("Nach unten") }
+
+/** The tuner: chromatic or to a tuning's strings, and the user's own tunings. */
+@Serializable
+data class TunerSettings(
+    /** Name of the tuning (see widder.music.Tuner.presets and [custom]); null = chromatic. */
+    val tuning: String? = null,
+    val custom: List<widder.music.StringTuning> = emptyList(),
+    /** How far off is shown in semitones instead of cents. */
+    val semitones: Boolean = false,
+)
+
+/** How the line gets to a point from the one before. */
+@Serializable
+enum class Bend(val label: String) { SMOOTH("Weich"), LINEAR("Gerade"), STEEP("Steil") }
+
+/** A corner of the vibrato trainer's line: [at] 0..1 over the tone, [cents] from the note. */
+@Serializable
+data class LinePoint(val at: Float, val cents: Float, val bend: Bend = Bend.SMOOTH)
+
+@Serializable
+enum class VibratoSound(val label: String) { STRINGS("Streicher"), VOICE("Stimme"), ORGAN("Orgel"), FLUTE("Flöte"), SINE("Sinus") }
+
+/**
+ * The vibrato trainer's model tone: which note, how it sounds, the line it follows (straight, rising,
+ * falling, drawn by hand ...) and the vibrato that swings on top of the line.
+ */
+@Serializable
+data class VibratoSettings(
+    /** Pitch class, 0 = C. */
+    val root: Int = 9,
+    /** Octave in scientific pitch, A3 = 220 Hz. */
+    val octave: Int = 3,
+    val sound: VibratoSound = VibratoSound.STRINGS,
+    /** Swings per second. */
+    val rate: Float = 5.5f,
+    /** From the lowest to the highest point, in cents; 0 = no vibrato, only the line. */
+    val width: Int = 50,
+    val direction: VibratoDirection = VibratoDirection.AROUND,
+    val seconds: Int = 4,
+    /** Seconds before the vibrato sets in (it then swells in over [FADE_IN] seconds). */
+    val vibratoFrom: Float = 0f,
+    /** The line's corner points, in time order; empty = straight on the note. */
+    val points: List<LinePoint> = emptyList(),
+    /** The graph's side shows frequencies instead of note names. */
+    val axisHz: Boolean = false,
+) {
+    /** MIDI pitch of the note. */
+    val pitch: Int get() = 12 * (octave + 1) + root
+
+    /** Where the tone is [t] seconds in, in cents from the note: line plus vibrato. */
+    fun cents(t: Double): Double = lineAt(t) + swingAt(t)
+
+    /** The line alone, [t] seconds in: through the points, flat before the first and after the last. */
+    fun lineAt(t: Double): Double {
+        if (points.isEmpty()) return 0.0
+        val u = t / seconds
+        val next = points.indexOfFirst { it.at >= u }
+        if (next == 0) return points[0].cents.toDouble()
+        if (next < 0) return points.last().cents.toDouble()
+        val a = points[next - 1]
+        val b = points[next]
+        val span = (b.at - a.at).toDouble()
+        val x = if (span <= 0) 1.0 else (u - a.at) / span
+        val f = when (b.bend) {
+            Bend.LINEAR -> x
+            Bend.SMOOTH -> (1 - kotlin.math.cos(kotlin.math.PI * x)) / 2
+            // Holds, then shoots up (or down) in the last moment before the point.
+            Bend.STEEP -> {
+                val rise = (STEEP_SECONDS / seconds / span).coerceAtMost(1.0)
+                ((x - (1 - rise)) / rise).coerceIn(0.0, 1.0)
+            }
+        }
+        return a.cents + (b.cents - a.cents) * f
+    }
+
+    /** The vibrato alone, [t] seconds in. */
+    fun swingAt(t: Double): Double {
+        val v = t - vibratoFrom
+        if (width == 0 || v < 0) return 0.0
+        val fade = if (vibratoFrom > 0f) (v / FADE_IN).coerceAtMost(1.0) else 1.0
+        val swing = 2 * kotlin.math.PI * rate * v
+        return fade * when (direction) {
+            VibratoDirection.AROUND -> width / 2.0 * kotlin.math.sin(swing)
+            VibratoDirection.UP -> width / 2.0 * (1 - kotlin.math.cos(swing))
+            VibratoDirection.DOWN -> -width / 2.0 * (1 - kotlin.math.cos(swing))
+        }
+    }
+
+    /** The middle of the swing, in cents from the line. */
+    val center: Double get() = when (direction) {
+        VibratoDirection.AROUND -> 0.0
+        VibratoDirection.UP -> width / 2.0
+        VibratoDirection.DOWN -> -width / 2.0
+    }
+
+    companion object {
+        const val MIN_RATE = 2f
+        const val MAX_RATE = 9f
+        const val MAX_WIDTH = 200
+        /** How far the line may go from the note, in cents. */
+        const val LINE_RANGE = 500
+        const val FADE_IN = 0.4
+        /** A steep step takes this long. */
+        const val STEEP_SECONDS = 0.06
     }
 }
 

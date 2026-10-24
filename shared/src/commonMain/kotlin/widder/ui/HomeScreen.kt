@@ -203,7 +203,7 @@ private fun PracticeCard(vm: AppViewModel) {
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Drone auf jedem Grundton und Drums mit 17 Grooves und mehreren Drumsets zum Mitspielen.",
+                    "Stimmgerät (auch Mikrotöne), Drone, Drums mit 17 Grooves, Looper und ein Vibrato-Trainer.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

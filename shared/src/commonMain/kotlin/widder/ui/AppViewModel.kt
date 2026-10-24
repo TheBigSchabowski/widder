@@ -14,6 +14,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.abs
+import kotlin.math.log2
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import widder.audio.AUDIO_EXTENSIONS
@@ -24,7 +27,16 @@ import widder.audio.MIDI_EXTENSIONS
 import widder.audio.Pcm
 import widder.audio.PracticeEngine
 import widder.audio.RenderCache
+import widder.audio.Loop
+import widder.audio.LatencyProbe
+import widder.audio.Looper
+import widder.audio.PitchFollower
+import widder.audio.PitchTracker
 import widder.audio.Synth
+import widder.audio.VibratoAnalysis
+import widder.audio.VibratoResult
+import widder.audio.VibratoLine
+import widder.audio.VibratoSynth
 import widder.audio.Wav
 import widder.core.Action
 import widder.core.ActionKind
@@ -55,12 +67,19 @@ import widder.core.formatTime
 import widder.core.newId
 import widder.core.NumeralMode
 import widder.core.PracticeSettings
+import widder.core.Bend
+import widder.core.TunerSettings
+import widder.core.VibratoDirection
+import widder.core.VibratoSound
+import widder.core.VibratoSettings
 import widder.music.AnswerParser
 import widder.music.Chord
 import widder.music.Harmony
 import widder.music.Interval
 import widder.music.Key
+import widder.music.StringTuning
 import widder.music.Token
+import widder.music.Tuner
 import widder.music.Midi
 import widder.music.MidiAnalysis
 import widder.music.Note
@@ -155,6 +174,7 @@ class AppViewModel(
     private var kitsToLink = listOf<String>()
 
     init {
+        audio.devices?.use(settings.audioInput, settings.audioOutput, settings.inputChannel)
         installStandardKits()
         loadRewardImage()
         if (live) {
@@ -185,6 +205,11 @@ class AppViewModel(
     fun back(): Boolean {
         when {
             recording != null -> stopRecording(keep = false)
+            vibratoTake?.recording == true -> stopVibratoRecording(keep = false)
+            vibratoLive != null -> stopVibratoLive()
+            tunerOn -> stopTuner()
+            monitor != null -> stopMonitor()
+            loopTake?.let { it.phase != LoopPhase.READY } == true -> clearLoop()
             audioEditor != null -> closeAudioEditor()
             importPreview != null -> importPreview = null
             pendingImport != null -> pendingImport = null
@@ -209,6 +234,7 @@ class AppViewModel(
         if (leaving is Screen.Train) training = null
         if (leaving is Screen.EditCard) editor = null
         if (leaving == Screen.Practice) stopPractice()
+        if (leaving == Screen.Settings) stopInputTest()
         stack = stack.dropLast(1)
     }
 
@@ -1287,6 +1313,7 @@ class AppViewModel(
     }
 
     private fun tickSecond() {
+        checkPracticeTimer()
         if (!foreground || !screen.isStudy) return
         unsavedSeconds++
         if (unsavedSeconds >= 15) flushStudyTime()
@@ -1310,6 +1337,8 @@ class AppViewModel(
     fun onPause() {
         foreground = false
         flushStudyTime()
+        // Practice may play on in the background, where Android can end the app unasked.
+        if (practice != settings.practice) updateSettings { it.copy(practice = practice) }
         if (recording != null) stopRecording(keep = true)
         stopAudio()
     }
@@ -1605,30 +1634,73 @@ class AppViewModel(
         playPractice()
     }
 
-    /** Starts the stream when the first part is switched on and stops it with the last. */
+    /**
+     * Starts the stream when the first part is switched on and stops it with the last. While it
+     * plays, the platform keeps the app alive in the background, and the timer runs.
+     */
     private fun playPractice() {
         practiceEngine.settings = practice
         practiceEngine.droneOn = droneOn
         practiceEngine.drumsOn = drumsOn
-        val wanted = droneOn || drumsOn
+        practiceEngine.loopOn = loopOn
+        val wanted = droneOn || drumsOn || loopOn
+        if (wanted) stopMeasuringLatency()
         if (wanted && !audio.live.isRunning) {
             audio.player.stop()
             playingKey = null
+            restartPracticeTimer()
             audio.live.start(practiceEngine) {
                 scope.launch {
                     droneOn = false
                     drumsOn = false
+                    loopOn = false
+                    platform.backgroundAudio(null)
                     toast("Kein Audio-Ausgang verfügbar")
                 }
             }
-        } else if (!wanted && audio.live.isRunning) {
+        } else if (!wanted && audio.live.isRunning && !measuringLatency) {
             audio.live.stop()
         }
+        if (!wanted) practiceEndsAt = null
+        platform.backgroundAudio(practiceText())
+    }
+
+    /** What the background notification says; null when nothing plays and the looper does not record. */
+    private fun practiceText(): BackgroundAudio? {
+        val recordingLoop = loopTake?.let { it.phase != LoopPhase.READY } == true
+        val text = listOfNotNull(
+            "Drums ${practice.bpm} BPM".takeIf { drumsOn },
+            "Drone auf ${Chord.noteName(practice.root, notation)}".takeIf { droneOn },
+            when {
+                overdub != null -> "Overdub"
+                recordingLoop -> "Loop-Aufnahme"
+                loopOn -> "Loop"
+                else -> null
+            },
+        ).joinToString(" · ")
+        return text.ifEmpty { null }?.let { BackgroundAudio(it, microphone = overdub != null || recordingLoop) }
+    }
+
+    /** Drums, drone and loop off at once: the timer, the notification's stop button. */
+    fun stopPracticeSound() {
+        stopOverdub()
+        droneOn = false
+        drumsOn = false
+        loopOn = false
+        playPractice()
     }
 
     fun stopPractice() {
+        stopMeasuringLatency()
+        stopMonitor()
+        stopTuner()
+        stopVibratoLive()
+        stopVibratoRecording(keep = false)
+        vibratoTake = null
+        if (loopTake?.phase != LoopPhase.READY) clearLoop()
         droneOn = false
         drumsOn = false
+        loopOn = false
         playPractice()
         if (practice != settings.practice) updateSettings { it.copy(practice = practice) }
     }
@@ -1645,6 +1717,778 @@ class AppViewModel(
 
     // endregion
 
+    // region audio devices
+
+    /** The input level meter in the settings is on. */
+    var inputTest by mutableStateOf(false)
+        private set
+
+    /** Devices to choose from; asked anew each time, an interface may just have been plugged in. */
+    fun audioInputs(): List<String> = audio.devices?.inputs().orEmpty()
+
+    fun audioOutputs(): List<String> = audio.devices?.outputs().orEmpty()
+
+    fun setAudioDevices(input: String?, output: String?, channel: Int) {
+        val testing = inputTest
+        stopInputTest()
+        updateSettings { it.copy(audioInput = input, audioOutput = output, inputChannel = channel) }
+        audio.devices?.use(input, output, channel)
+        // Running sound moves over to the new output.
+        if (audio.live.isRunning) {
+            audio.live.stop()
+            playPractice()
+        }
+        if (testing) toggleInputTest()
+    }
+
+    fun toggleInputTest() {
+        if (inputTest) {
+            stopInputTest()
+            return
+        }
+        releaseMic()
+        if (audio.recorder.isRecording) return
+        platform.requestMicrophone { granted ->
+            when {
+                !granted -> toast("Ohne Mikrofon-Erlaubnis kann Widder nicht zuhören")
+                !audio.recorder.listen() -> toast("Dieser Eingang lässt sich nicht öffnen")
+                else -> inputTest = true
+            }
+        }
+    }
+
+    fun stopInputTest() {
+        if (!inputTest) return
+        inputTest = false
+        audio.recorder.stop()
+    }
+
+    // endregion
+
+    // region pitch picture
+
+    /** Showing where one sings or plays, without anything to copy. */
+    var monitor by mutableStateOf<PitchMonitor?>(null)
+        private set
+
+    fun toggleMonitor() {
+        if (monitor != null) {
+            stopMonitor()
+            return
+        }
+        releaseMic()
+        if (audio.recorder.isRecording) return
+        platform.requestMicrophone { granted ->
+            when {
+                !granted -> toast("Ohne Mikrofon-Erlaubnis kann Widder nicht zuhören")
+                !audio.recorder.listen() -> toast("Kein Mikrofon gefunden")
+                else -> {
+                    val m = PitchMonitor()
+                    monitor = m
+                    scope.launch { followMonitor(m) }
+                }
+            }
+        }
+    }
+
+    fun stopMonitor() {
+        monitor ?: return
+        monitor = null
+        audio.recorder.stop()
+    }
+
+    private suspend fun followMonitor(m: PitchMonitor) {
+        val follower = PitchFollower(audio.recorder, minFreq = 50.0)
+        while (monitor === m) {
+            val readings = withContext(work) { follower.poll() }
+            if (monitor !== m) break
+            val tuning = practice.tuning
+            for ((t, f) in readings) m.add(t.toFloat(), if (f.isNaN()) Float.NaN else (69 + 12 * log2(f / tuning)).toFloat(), 60f)
+            delay(30)
+        }
+    }
+
+    /** Only one listens at a time: the tuner, live vibrato, the input test and the pitch picture make way for each other. */
+    private fun releaseMic() {
+        stopMeasuringLatency()
+        stopOverdub()
+        stopTuner()
+        stopVibratoLive()
+        stopInputTest()
+        stopMonitor()
+    }
+
+    // endregion
+
+    // region tuner
+
+    var tunerOn by mutableStateOf(false)
+        private set
+
+    /** The steadied frequency heard, null while nothing clear sounds. */
+    var tunerHz by mutableStateOf<Double?>(null)
+        private set
+
+    /** The string picked by hand; null = the nearest one is found by itself. */
+    var tunerString by mutableStateOf<Int?>(null)
+        private set
+
+    /** The presets and the user's own tunings. */
+    val tunings: List<StringTuning> get() = Tuner.presets + practice.tuner.custom
+
+    val tuning: StringTuning? get() = practice.tuner.tuning?.let { name -> tunings.firstOrNull { it.name == name } }
+
+    fun updateTuner(transform: (TunerSettings) -> TunerSettings) = updatePractice { it.copy(tuner = transform(it.tuner)) }
+
+    fun chooseTuning(name: String?) {
+        tunerString = null
+        updateTuner { it.copy(tuning = name) }
+    }
+
+    /** Saves [notes] ("D2 A2 D3 G3 A3 D4", cents allowed: "A2+50") as a tuning called [name]; false if a note is unreadable. */
+    fun addTuning(name: String, notes: String): Boolean {
+        val strings = Tuner.parseStrings(notes) ?: return false
+        val title = name.trim().ifEmpty { notes.trim() }
+        updateTuner { t -> t.copy(custom = t.custom.filter { it.name != title } + StringTuning(title, strings), tuning = title) }
+        tunerString = null
+        return true
+    }
+
+    fun removeTuning(name: String) = updateTuner { t -> t.copy(custom = t.custom.filter { it.name != name }, tuning = t.tuning.takeIf { it != name }) }
+
+    /** Picks a string to tune (again: back to finding it by itself) and plays it, as a reference. */
+    fun pickString(index: Int) {
+        tunerString = if (tunerString == index) null else index
+        val string = tuning?.strings?.getOrNull(index) ?: return
+        if (tunerString == null) return
+        val a4 = practice.tuning * 2.0.pow(string.cents / 1200.0)
+        val settings = VibratoSettings(root = string.pitch % 12, octave = string.pitch / 12 - 1, sound = VibratoSound.STRINGS, width = 0, seconds = 2)
+        // Its own sound would only confuse the tuner while it listens: it waits until the tone is over.
+        scope.launch {
+            val pcm = withContext(work) { VibratoSynth.render(settings, a4, vibrato = false) }
+            playingKey = "string-$index"
+            audio.player.play(pcm) { scope.launch { if (playingKey == "string-$index") playingKey = null } }
+        }
+    }
+
+    fun toggleTuner() {
+        if (tunerOn) {
+            stopTuner()
+            return
+        }
+        releaseMic()
+        if (audio.recorder.isRecording) return
+        platform.requestMicrophone { granted ->
+            when {
+                !granted -> toast("Ohne Mikrofon-Erlaubnis kann Widder nicht zuhören")
+                !audio.recorder.listen() -> toast("Kein Mikrofon gefunden")
+                else -> {
+                    tunerOn = true
+                    scope.launch { listenTuner() }
+                }
+            }
+        }
+    }
+
+    fun stopTuner() {
+        if (!tunerOn) return
+        tunerOn = false
+        tunerHz = null
+        audio.recorder.stop()
+    }
+
+    /** The median of the last few clear readings, so the needle does not jitter; gone after a moment of silence. */
+    private suspend fun listenTuner() {
+        val recorder = audio.recorder
+        val frame = FloatArray(PitchTracker.frameSize(recorder.sampleRate, PitchTracker.LOWEST))
+        val recent = ArrayDeque<Double>()
+        var lastHeard = 0L
+        while (tunerOn) {
+            val n = recorder.latest(frame)
+            val f = if (n == frame.size) withContext(work) { PitchTracker.detect(frame, n, recorder.sampleRate, minFreq = PitchTracker.LOWEST) } else Float.NaN
+            if (!tunerOn) break
+            val now = currentTimeMillis()
+            // While its own reference tone plays, the tuner would only hear that.
+            if (!f.isNaN() && !(playingKey?.startsWith("string-") == true && audio.player.isPlaying)) {
+                // A jump to another note starts the median afresh.
+                if (recent.isNotEmpty() && abs(1200 * log2(f / recent.last())) > 80) recent.clear()
+                recent.addLast(f.toDouble())
+                while (recent.size > 5) recent.removeFirst()
+                tunerHz = recent.sorted()[recent.size / 2]
+                lastHeard = now
+            } else if (now - lastHeard > 700) {
+                tunerHz = null
+                recent.clear()
+            }
+            delay(25)
+        }
+    }
+
+    // endregion
+
+    // region practice timer
+
+    /** When the timer switches the practice sound off; null while it is off or nothing plays. */
+    var practiceEndsAt by mutableStateOf<Long?>(null)
+        private set
+
+    /** Seconds left on the timer, for the countdown; refreshed every second. */
+    var practiceSecondsLeft by mutableStateOf<Int?>(null)
+        private set
+
+    fun setStopAfter(minutes: Int) {
+        updatePractice { it.copy(stopAfter = minutes) }
+        if (audio.live.isRunning) restartPracticeTimer() else practiceEndsAt = null
+        checkPracticeTimer()
+    }
+
+    private fun restartPracticeTimer() {
+        practiceEndsAt = practice.stopAfter.takeIf { it > 0 }?.let { currentTimeMillis() + it * 60_000L }
+        checkPracticeTimer()
+    }
+
+    internal fun checkPracticeTimer(now: Long = currentTimeMillis()) {
+        val end = practiceEndsAt
+        practiceSecondsLeft = end?.let { ((it - now + 999) / 1000).toInt().coerceAtLeast(0) }
+        if (end != null && now >= end) {
+            if (loopTake?.phase != LoopPhase.READY) clearLoop()
+            stopPracticeSound()
+            toast("Timer: nach ${practice.stopAfter} min ist Schluss")
+        }
+    }
+
+    // endregion
+
+    // region looper
+
+    /** The one recording the looper repeats, while it is recorded and after. */
+    var loopTake by mutableStateOf<LoopTake?>(null)
+        private set
+    var loopOn by mutableStateOf(false)
+        private set
+
+    /** One button through it all: record, set the loop, then play / stop it. */
+    fun loopButton() = when (loopTake?.phase) {
+        null -> startLoop()
+        LoopPhase.RECORDING -> setLoop()
+        LoopPhase.CLOSING -> Unit
+        LoopPhase.READY -> toggleLoop()
+    }
+
+    /** Records anew; with the drums running, the loop is cut on their bar lines and stays locked to them. */
+    fun startLoop() {
+        releaseMic()
+        if (recording != null || vibratoTake?.recording == true || loopTake?.let { it.phase != LoopPhase.READY } == true) return
+        stopAudio()
+        platform.requestMicrophone { granted ->
+            if (!granted) {
+                toast("Ohne Mikrofon-Erlaubnis kann Widder nicht aufnehmen")
+                return@requestMicrophone
+            }
+            loopOn = false
+            practiceEngine.loop = null
+            playPractice()
+            if (!audio.recorder.start()) {
+                toast("Kein Mikrofon gefunden")
+                return@requestMicrophone
+            }
+            // Read after the microphone is open: its first sample is about now.
+            val clock = practiceEngine.clock
+            val sync = Looper.Sync(clock, audio.recorder.sampleRate, practice.loopLatency / 1000.0).takeIf { drumsOn && clock.running }
+            val take = LoopTake(sync, currentTimeMillis())
+            loopTake = take
+            platform.backgroundAudio(practiceText())
+            scope.launch {
+                while (loopTake === take && take.phase != LoopPhase.READY) {
+                    take.seconds = audio.recorder.recorded.toDouble() / audio.recorder.sampleRate
+                    sync?.let { take.bar = it.barAt(audio.recorder.recorded.toLong()) - it.firstBar }
+                    delay(50)
+                }
+            }
+        }
+    }
+
+    /** Ends the recording: at once, or locked to the drums on the next bar line (the one just passed, if only just). */
+    fun setLoop() {
+        val take = loopTake?.takeIf { it.phase == LoopPhase.RECORDING } ?: return
+        val sync = take.sync
+        if (sync == null || !practiceEngine.clock.running) {
+            finishLoop(take, null)
+            return
+        }
+        val last = sync.lastBar(sync.barAt(audio.recorder.recorded.toLong()))
+        take.phase = LoopPhase.CLOSING
+        val needed = sync.sampleAt(last.toDouble()) + (2 * Looper.FADE_SECONDS * audio.recorder.sampleRate).toLong()
+        scope.launch {
+            while (loopTake === take && audio.recorder.recorded < needed) delay(10)
+            if (loopTake === take) finishLoop(take, last)
+        }
+    }
+
+    private fun finishLoop(take: LoopTake, lastBar: Long?) {
+        val pcm = audio.recorder.stop()
+        val sync = take.sync
+        if (pcm == null) {
+            loopTake = null
+            platform.backgroundAudio(practiceText())
+            toast("Nichts aufgenommen")
+            return
+        }
+        val mic = pcm.channels[0]
+        val rate = pcm.sampleRate
+        val loop = if (sync != null && lastBar != null) {
+            Loop(Looper.cut(mic, sync.sampleAt(sync.firstBar.toDouble()), sync.sampleAt(lastBar.toDouble()), rate), rate, (lastBar - sync.firstBar).toInt(), sync.firstBar)
+        } else {
+            Loop(Looper.free(mic, rate), rate)
+        }
+        if (loop.samples.size < rate / 4) {
+            loopTake = null
+            platform.backgroundAudio(practiceText())
+            toast("Zu kurz für einen Loop")
+            return
+        }
+        take.pcm = Pcm(rate, listOf(loop.samples))
+        take.bars = loop.bars
+        take.seconds = loop.samples.size.toDouble() / rate
+        take.phase = LoopPhase.READY
+        practiceEngine.loop = loop
+        loopOn = true
+        playPractice()
+    }
+
+    fun toggleLoop() {
+        if (loopTake?.phase != LoopPhase.READY) return
+        if (loopOn) stopOverdub()
+        loopOn = !loopOn
+        playPractice()
+    }
+
+    /** Throws the loop away, or the recording in progress. */
+    fun clearLoop() {
+        val take = loopTake ?: return
+        stopOverdub()
+        loopTake = null
+        if (take.phase != LoopPhase.READY) audio.recorder.stop()
+        practiceEngine.loop = null
+        loopOn = false
+        playPractice()
+    }
+
+    fun saveLoop() {
+        val pcm = loopTake?.pcm ?: return
+        val name = "Loop ${formatTime(currentTimeMillis(), "dd.MM. HH-mm")}.wav"
+        platform.saveFile(name, Wav.write(pcm)) { where -> if (where != null) scope.launch { toast("Gespeichert: $where") } }
+    }
+
+    /** The take being laid over the loop, and the newest microphone samples it reads from. */
+    private var overdub: Looper.Overdub? = null
+    private var overdubMic = FloatArray(0)
+
+    fun toggleOverdub() = if (overdub != null) stopOverdub() else startOverdub()
+
+    /**
+     * Plays over the running loop and lays it on top, pass after pass, until stopped. A stopped
+     * loop is started first. The microphone only listens: the take goes straight into the loop.
+     */
+    fun startOverdub() {
+        val take = loopTake?.takeIf { it.phase == LoopPhase.READY && overdub == null } ?: return
+        releaseMic()
+        if (recording != null || vibratoTake?.recording == true) return
+        stopAudio()
+        platform.requestMicrophone { granted ->
+            if (!granted) {
+                toast("Ohne Mikrofon-Erlaubnis kann Widder nicht aufnehmen")
+                return@requestMicrophone
+            }
+            scope.launch {
+                if (!loopOn) {
+                    loopOn = true
+                    playPractice()
+                }
+                // The loop's position comes with the next block the output renders.
+                val seen = practiceEngine.clock.frame
+                val waitUntil = currentTimeMillis() + 2000
+                while (practiceEngine.clock.frame == seen && currentTimeMillis() < waitUntil) delay(5)
+                val loop = practiceEngine.loop
+                if (loopTake !== take || overdub != null || loop == null || !loopOn) return@launch
+                if (!audio.recorder.listen()) {
+                    toast("Kein Mikrofon gefunden")
+                    return@launch
+                }
+                // Read after the microphone is open: its first sample is about now.
+                val clock = practiceEngine.clock
+                val rate = audio.recorder.sampleRate
+                val dub = Looper.Overdub(loop.samples, clock.loop, Looper.speed(loop, clock), rate, practice.loopLatency / 1000.0)
+                take.undo.addLast(loop.samples.copyOf())
+                while (take.undo.size > MAX_LOOP_UNDO) take.undo.removeFirst()
+                overdub = dub
+                overdubMic = FloatArray(rate * 2)
+                take.overdubbing = true
+                platform.backgroundAudio(practiceText())
+                while (overdub === dub) {
+                    dub.add(overdubMic, audio.recorder.snapshot(overdubMic))
+                    delay(50)
+                }
+            }
+        }
+    }
+
+    /** Lays in the rest of the take; it is then one more layer of the loop. */
+    fun stopOverdub() {
+        val dub = overdub ?: return
+        overdub = null
+        dub.finish(overdubMic, audio.recorder.snapshot(overdubMic))
+        audio.recorder.stop()
+        loopTake?.let {
+            it.overdubbing = false
+            it.layers++
+        }
+        platform.backgroundAudio(practiceText())
+    }
+
+    /** Clicks are playing for [measureLatency]. */
+    var measuringLatency by mutableStateOf(false)
+        private set
+
+    /**
+     * Plays a few clicks and listens for them: how long they take from the output to the
+     * microphone becomes the looper's latency. Drums, drone and loop pause meanwhile.
+     */
+    fun measureLatency() {
+        if (measuringLatency || overdub != null || loopTake?.let { it.phase != LoopPhase.READY } == true) return
+        releaseMic()
+        if (recording != null || vibratoTake?.recording == true) return
+        stopAudio()
+        platform.requestMicrophone { granted ->
+            if (!granted) {
+                toast("Ohne Mikrofon-Erlaubnis kann Widder nicht messen")
+                return@requestMicrophone
+            }
+            stopPracticeSound()
+            measuringLatency = true
+            scope.launch {
+                val probe = LatencyProbe()
+                var failed = false
+                // Whoever stops the measuring (see stopMeasuringLatency) takes over output and microphone.
+                audio.live.start(probe) { failed = true }
+                val waitUntil = currentTimeMillis() + 3000
+                while (probe.frames == 0L && !failed && measuringLatency && currentTimeMillis() < waitUntil) delay(5)
+                if (!measuringLatency) return@launch
+                val latency = if (probe.frames > 0 && audio.recorder.start()) {
+                    // Read after the microphone is open, as when recording a loop.
+                    val start = probe.frames
+                    val endsBy = currentTimeMillis() + probe.endFrame * 1000 / probe.rate + 2000
+                    while (probe.frames < probe.endFrame && measuringLatency && currentTimeMillis() < endsBy) delay(20)
+                    if (!measuringLatency) return@launch
+                    audio.recorder.stop()?.let { LatencyProbe.measure(probe, it.channels[0], it.sampleRate, start) }
+                } else {
+                    null
+                }
+                audio.live.stop()
+                measuringLatency = false
+                if (latency == null) {
+                    toast("Keine Klicks gehört – ohne Kopfhörer und etwas lauter nochmal versuchen")
+                } else {
+                    val ms = ((latency * 1000 / 5).roundToInt() * 5).coerceIn(0, 500)
+                    updatePractice { it.copy(loopLatency = ms) }
+                    toast("Latenz: $ms ms")
+                }
+            }
+        }
+    }
+
+    private fun stopMeasuringLatency() {
+        if (!measuringLatency) return
+        measuringLatency = false
+        audio.recorder.stop()
+        audio.live.stop()
+    }
+
+    /** Takes the last overdub off again (an overdub in progress ends first). */
+    fun undoOverdub() {
+        stopOverdub()
+        val take = loopTake ?: return
+        val before = take.undo.removeLastOrNull() ?: return
+        val loop = practiceEngine.loop ?: return
+        // In place: a new array would make a free loop start over.
+        before.copyInto(loop.samples)
+        take.layers--
+    }
+
+    // endregion
+
+    // region vibrato trainer
+
+    /** After "Zufall" the model's speed, width and direction stay hidden until an attempt is measured or they are uncovered. */
+    var vibratoHidden by mutableStateOf(false)
+        private set
+    var vibratoTake by mutableStateOf<VibratoTake?>(null)
+        private set
+
+    /** The graph takes editing: points of the model's line are added, dragged and removed there. */
+    var vibratoDrawing by mutableStateOf(false)
+        private set
+
+    /** The line point picked in the editor, for its bend and to delete it. */
+    var linePoint by mutableStateOf<Int?>(null)
+        private set
+
+    /** A changed model makes the last attempt's result stale, so it goes. */
+    fun updateVibrato(transform: (VibratoSettings) -> VibratoSettings) {
+        updatePractice { it.copy(vibrato = transform(it.vibrato)) }
+        if (vibratoTake?.recording != true) vibratoTake = null
+    }
+
+    fun toggleVibratoDrawing() {
+        vibratoDrawing = !vibratoDrawing
+        linePoint = null
+    }
+
+    fun setVibratoLine(line: VibratoLine) {
+        linePoint = null
+        updateVibrato { it.copy(points = line.points()) }
+    }
+
+    /** A new point at [at] (0..1 over the tone) and [cents]; it is then the picked one. */
+    fun addLinePoint(at: Float, cents: Float, steep: Boolean = false) {
+        val (points, index) = VibratoLine.add(practice.vibrato.points, at, cents, if (steep) Bend.STEEP else Bend.SMOOTH)
+        updateVibrato { it.copy(points = points) }
+        linePoint = index
+    }
+
+    /** Drags point [index]: with Shift ([steep]) the way up to it becomes a steep step, without, a steep one turns soft again. */
+    fun moveLinePoint(index: Int, at: Float, cents: Float, steep: Boolean = false) {
+        val old = practice.vibrato.points.getOrNull(index) ?: return
+        val bend = if (steep) Bend.STEEP else if (old.bend == Bend.STEEP) Bend.SMOOTH else null
+        updateVibrato { it.copy(points = VibratoLine.move(it.points, index, at, cents, bend)) }
+        linePoint = index
+    }
+
+    /** Points snap to the microtone grid (see [widder.core.PracticeSettings.division]). */
+    var lineSnap by mutableStateOf(true)
+        private set
+
+    fun toggleLineSnap() {
+        lineSnap = !lineSnap
+    }
+
+    fun pickLinePoint(index: Int?) {
+        linePoint = index
+    }
+
+    fun removeLinePoint(index: Int) {
+        updateVibrato { it.copy(points = VibratoLine.remove(it.points, index)) }
+        linePoint = null
+    }
+
+    fun bendLinePoint(index: Int, bend: Bend) = updateVibrato { it.copy(points = VibratoLine.bend(it.points, index, bend)) }
+
+    // region live
+
+    /** Playing along without recording: the pitch runs over the model and is measured as it goes. */
+    var vibratoLive by mutableStateOf<VibratoLive?>(null)
+        private set
+
+    fun toggleVibratoLive() {
+        vibratoLive?.let {
+            stopVibratoLive()
+            return
+        }
+        releaseMic()
+        if (audio.recorder.isRecording) return
+        stopAudio()
+        platform.requestMicrophone { granted ->
+            when {
+                !granted -> toast("Ohne Mikrofon-Erlaubnis kann Widder nicht zuhören")
+                !audio.recorder.listen() -> toast("Kein Mikrofon gefunden")
+                else -> {
+                    val session = VibratoLive(currentTimeMillis())
+                    vibratoLive = session
+                    vibratoTake = null
+                    scope.launch { followLive(session) }
+                }
+            }
+        }
+    }
+
+    fun stopVibratoLive() {
+        vibratoLive ?: return
+        vibratoLive = null
+        audio.recorder.stop()
+    }
+
+    /** The pitch frame by frame for the picture, and every half second the swing of the last three seconds. */
+    private suspend fun followLive(session: VibratoLive) {
+        val follower = PitchFollower(audio.recorder)
+        var lastMeasure = 0.0
+        while (vibratoLive === session) {
+            val target = practice.vibrato
+            val f0 = PracticeEngine.frequency(target.pitch, practice.tuning)
+            val readings = withContext(work) { follower.poll() }
+            if (vibratoLive !== session) break
+            for ((t, f) in readings) session.add(t.toFloat(), if (f.isNaN()) Float.NaN else VibratoAnalysis.cents(f.toDouble(), f0).toFloat(), target.seconds.toFloat())
+            val now = readings.lastOrNull()?.first ?: lastMeasure
+            if (now - lastMeasure >= 0.5 && session.recent.size >= VibratoLive.RECENT) {
+                lastMeasure = now
+                // Only the swing counts here: around the note, from the first moment.
+                val swing = target.copy(points = emptyList(), vibratoFrom = 0f, seconds = 3)
+                val curve = session.recent.toFloatArray()
+                session.result = withContext(work) { VibratoAnalysis.analyse(curve, swing) }
+            }
+            delay(30)
+        }
+    }
+
+    // endregion
+
+    /** Plays the model note, with its vibrato or as a straight tone; again while it plays stops it. */
+    fun playVibrato(swing: Boolean) {
+        if (!live || vibratoTake?.recording == true) return
+        val key = if (swing) VIBRATO_KEY else TONE_KEY
+        if (playingKey == key && audio.player.isPlaying) {
+            stopAudio()
+            return
+        }
+        playingKey = key
+        val s = practice.vibrato
+        val tuning = practice.tuning
+        scope.launch {
+            val pcm = withContext(work) { VibratoSynth.render(s, tuning, vibrato = swing) }
+            if (playingKey != key) return@launch
+            audio.player.play(pcm) { scope.launch { if (playingKey == key) playingKey = null } }
+        }
+    }
+
+    /** A vibrato to copy by ear: speed, width and direction drawn at random, hidden and played at once. */
+    fun randomVibrato() {
+        if (vibratoTake?.recording == true) return
+        updateVibrato {
+            it.copy(
+                rate = (7..16).random(random) / 2f,
+                width = (2..12).random(random) * 10,
+                direction = VibratoDirection.entries.random(random),
+                vibratoFrom = listOf(0f, 0f, 0f, 0.5f, 1f).random(random),
+                // Half the time straight, else one of the ready-made lines.
+                points = if (random.nextBoolean()) emptyList() else VibratoLine.entries.drop(1).random(random).points(),
+            )
+        }
+        vibratoDrawing = false
+        vibratoHidden = true
+        vibratoTake = null
+        stopAudio()
+        playVibrato(swing = true)
+    }
+
+    fun revealVibrato() {
+        vibratoHidden = false
+    }
+
+    fun toggleVibratoRecording() = if (vibratoTake?.recording == true) stopVibratoRecording() else startVibratoRecording()
+
+    private fun startVibratoRecording() {
+        if (recording != null) return
+        releaseMic()
+        stopAudio()
+        platform.requestMicrophone { granted ->
+            if (!granted) {
+                toast("Ohne Mikrofon-Erlaubnis kann Widder nicht zuhören")
+                return@requestMicrophone
+            }
+            if (!audio.recorder.start()) {
+                toast("Kein Mikrofon gefunden")
+                return@requestMicrophone
+            }
+            val take = VibratoTake(practice.vibrato, practice.tuning, currentTimeMillis())
+            vibratoTake = take
+            scope.launch { followPitch(take) }
+        }
+    }
+
+    /** The pitch curve while recording; stops by itself a while after the model tone would have ended. */
+    private suspend fun followPitch(take: VibratoTake) {
+        val follower = PitchFollower(audio.recorder)
+        val f0 = PracticeEngine.frequency(take.target.pitch, take.tuning)
+        val limit = (take.target.seconds + 8) * 1000L
+        while (take.recording) {
+            if (currentTimeMillis() - take.started > limit) {
+                stopVibratoRecording()
+                break
+            }
+            val readings = withContext(work) { follower.poll() }
+            if (!take.recording) break
+            for ((t, f) in readings) take.live += t.toFloat() to if (f.isNaN()) Float.NaN else VibratoAnalysis.cents(f.toDouble(), f0).toFloat()
+            delay(30)
+        }
+    }
+
+    fun stopVibratoRecording(keep: Boolean = true) {
+        val take = vibratoTake?.takeIf { it.recording } ?: return
+        take.recording = false
+        val pcm = audio.recorder.stop()
+        if (!keep) {
+            vibratoTake = null
+            return
+        }
+        take.pcm = pcm
+        if (pcm != null) evaluate(take, pcm)
+    }
+
+    /** Measures [pcm] against the current model as if it had just been recorded. */
+    fun tryVibrato(pcm: Pcm) {
+        stopVibratoRecording(keep = false)
+        val take = VibratoTake(practice.vibrato, practice.tuning, currentTimeMillis())
+        take.recording = false
+        take.pcm = pcm
+        vibratoTake = take
+        evaluate(take, pcm)
+    }
+
+    private fun evaluate(take: VibratoTake, pcm: Pcm) {
+        take.analysing = true
+        scope.launch {
+            val result = withContext(work) { VibratoAnalysis.analyse(pcm, take.target, take.tuning) }
+            take.result = result
+            take.analysing = false
+            if (result != null) vibratoHidden = false
+        }
+    }
+
+    /**
+     * Makes a sung (or played) vibrato the model: its pitch curve becomes the line, on the nearest
+     * note, and the vibrato from the sliders goes to 0 since the swing is in the line now.
+     */
+    fun adoptVibrato(result: VibratoResult) {
+        val curve = result.curve.copyOfRange(result.from, result.to)
+        if (curve.size < 50 || curve.any { it.isNaN() }) return
+        val semis = (curve.sorted()[curve.size / 2] / 100).roundToInt()
+        val pitch = practice.vibrato.pitch + semis
+        val points = VibratoLine.fromCurve(FloatArray(curve.size) { curve[it] - semis * 100 })
+        stopVibratoLive()
+        updateVibrato {
+            it.copy(
+                root = pitch.mod(12), octave = (pitch / 12 - 1).coerceIn(1, 6),
+                points = points, width = 0, vibratoFrom = 0f,
+                seconds = (curve.size * PitchTracker.HOP_SECONDS).roundToInt().coerceIn(1, 12),
+            )
+        }
+        vibratoHidden = false
+        linePoint = null
+        toast("Dein Vibrato ist jetzt die Vorgabe – ▶ spielt es nach")
+    }
+
+    /** Plays the last attempt back. */
+    fun playVibratoTake() {
+        val pcm = vibratoTake?.pcm ?: return
+        if (playingKey == TAKE_KEY && audio.player.isPlaying) {
+            stopAudio()
+            return
+        }
+        playingKey = TAKE_KEY
+        audio.player.play(pcm) { scope.launch { if (playingKey == TAKE_KEY) playingKey = null } }
+    }
+
+    // endregion
+
     // region keys (desktop)
 
     fun onKey(key: KeyCommand): Boolean {
@@ -1656,6 +2500,13 @@ class AppViewModel(
                 KeyCommand.TAP -> tapTempo()
                 KeyCommand.FASTER -> setBpm(practice.bpm + 1)
                 KeyCommand.SLOWER -> setBpm(practice.bpm - 1)
+                KeyCommand.VIBRATO -> playVibrato(swing = true)
+                KeyCommand.TONE -> playVibrato(swing = false)
+                KeyCommand.REPLAY -> toggleVibratoRecording()
+                KeyCommand.RANDOM -> randomVibrato()
+                KeyCommand.LOOP -> loopButton()
+                KeyCommand.OVERDUB -> toggleOverdub()
+                KeyCommand.UNDO -> undoOverdub()
                 else -> return false
             }
             return true
@@ -1726,3 +2577,10 @@ class AppViewModel(
         store.saveProgress(p)
     }
 }
+
+/** Overdubs that can be taken back. */
+const val MAX_LOOP_UNDO = 8
+
+const val VIBRATO_KEY = "vibrato"
+const val TONE_KEY = "vibrato-ton"
+const val TAKE_KEY = "vibrato-versuch"

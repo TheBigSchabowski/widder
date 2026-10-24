@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Drums, drone and loop play on in the background (PracticeService). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Recording a loop or an overdub goes on with the screen off. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -36,5 +43,9 @@
                 <data android:mimeType="application/x-midi" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".PracticeService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback|microphone" />
     </application>
 </manifest>

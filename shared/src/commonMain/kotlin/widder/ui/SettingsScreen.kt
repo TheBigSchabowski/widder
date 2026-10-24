@@ -37,6 +37,7 @@ fun SettingsScreen(vm: AppViewModel) {
         }
         Centered {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
+                if (vm.audio.devices != null) AudioDevicesPanel(vm)
                 SectionTitle("Bildbelohnung")
                 Panel {
                     SwitchRow("Bild nach und nach freischalten", "Aus: kein Bild auf dem Startbildschirm", r.enabled) { on ->
