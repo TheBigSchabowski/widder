@@ -142,6 +142,19 @@ fun HelpScreen(vm: AppViewModel) {
                     }
                     SmallButton("Kacheln anpassen", { vm.open(Screen.Tiles) })
                 }
+
+                if (!vm.platform.keyboard) {
+                    SectionTitle("Widgets & Schnellstart")
+                    Panel {
+                        Text(
+                            "Auf dem Android-Startbildschirm kannst du beliebig viele Widder-Widgets ablegen: " +
+                                "für die A-Drone ohne Quinte (startet sofort), den Üben-Bildschirm, " +
+                                "die Akkordfolgen oder jedes einzelne Lerndeck mit Anzeige der fälligen Karten.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 Spacer(Modifier.height(40.dp))
             }
         }

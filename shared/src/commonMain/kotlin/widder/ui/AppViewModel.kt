@@ -253,11 +253,7 @@ class AppViewModel(
     fun cardsIn(deckId: String): List<Card> = collection.cards.filter { it.deckId == deckId }
 
     /** The cards of [deck] that are learned: with the deck's tags, and for training only what can be trained. */
-    private fun studyCards(deck: Deck): List<Card> = collection.cards.filter { card ->
-        card.deckId == deck.id &&
-            (deck.studyTags.isEmpty() || card.tags.any { it in deck.studyTags }) &&
-            (deck.kind != DeckKind.CHORDS || (card.answer.isNotEmpty() && card.frontAudio != null))
-    }
+    private fun studyCards(deck: Deck): List<Card> = deck.studyCards(collection.cards)
 
     /** Learn only the cards with one of [tags]; empty = all. */
     fun setStudyTags(deckId: String, tags: List<String>) {
@@ -268,7 +264,7 @@ class AppViewModel(
 
     fun tagsIn(deckId: String): List<String> = cardsIn(deckId).flatMap { it.tags }.distinct().sorted()
 
-    fun counts(deck: Deck): DeckCounts = Queue(deck, studyCards(deck), progress).counts
+    fun counts(deck: Deck): DeckCounts = deck.counts(collection.cards, progress)
 
     fun dueTotal(kind: DeckKind): Int = decks(kind).sumOf { counts(it).total }
 
@@ -1464,6 +1460,7 @@ class AppViewModel(
             ActionKind.OPEN_CARDS -> jumpTo(Screen.Decks(DeckKind.CARDS))
             ActionKind.OPEN_CHORDS -> jumpTo(Screen.Decks(DeckKind.CHORDS))
             ActionKind.OPEN_PRACTICE -> jumpTo(Screen.Practice)
+            ActionKind.DRONE_A_NO_FIFTH -> startDroneANoFifth()
             ActionKind.SETTINGS -> jumpTo(Screen.Settings)
             ActionKind.CONFIG -> actionDeckId()?.let { deckDialog = DeckDialog.Options(it) } ?: jumpTo(Screen.Settings)
             ActionKind.HELP -> if (screen != Screen.Help) open(Screen.Help)
@@ -1474,6 +1471,18 @@ class AppViewModel(
             }
             else -> Unit
         }
+    }
+
+    /**
+     * Opens the Practice screen, configures the drone to root A (9) without the fifth (`fifth = false`),
+     * and toggles the drone on (or stops it if the exact A-drone-without-fifth was already playing).
+     */
+    fun startDroneANoFifth() {
+        val alreadyRunningThis = screen == Screen.Practice && droneOn && practice.root == 9 && !practice.fifth
+        jumpTo(Screen.Practice)
+        updatePractice { it.copy(root = 9, fifth = false) }
+        droneOn = !alreadyRunningThis
+        playPractice()
     }
 
     /** The open deck, or in a deck list the one picked by number. */
@@ -1524,6 +1533,22 @@ class AppViewModel(
             ActionKind.IMPORT -> pickImport(deckId)
             else -> Unit
         }
+    }
+
+    /**
+     * Runs [action] from an Android home-screen widget or app shortcut. If a deck has no due
+     * cards right now, opens its card list instead so the user lands inside that deck.
+     */
+    fun runWidgetAction(action: Action) {
+        if (action.kind == ActionKind.STUDY) {
+            val deck = deckOf(action)
+            if (deck != null && counts(deck).total == 0) {
+                jumpTo(Screen.Browse(deck.id))
+                toast("In „${deck.name}“ ist gerade nichts fällig")
+                return
+            }
+        }
+        run(action)
     }
 
     /** Opens [target] straight from the start screen, so back always leads home. */
@@ -1663,6 +1688,7 @@ class AppViewModel(
         }
         if (!wanted) practiceEndsAt = null
         platform.backgroundAudio(practiceText())
+        platform.updateWidgets()
     }
 
     /** What the background notification says; null when nothing plays and the looper does not record. */
@@ -2570,11 +2596,13 @@ class AppViewModel(
     private fun saveCollection(c: Collection) {
         collection = c
         store.saveCollection(c)
+        platform.updateWidgets()
     }
 
     private fun saveProgress(p: Progress) {
         progress = p
         store.saveProgress(p)
+        platform.updateWidgets()
     }
 }
 

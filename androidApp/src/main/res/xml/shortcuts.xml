@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="drone_a_no_fifth"
+        android:shortcutLongLabel="@string/shortcut_drone_long"
+        android:shortcutShortLabel="@string/shortcut_drone_short">
+        <intent
+            android:action="widder.WIDGET_ACTION"
+            android:targetClass="widder.android.MainActivity"
+            android:targetPackage="de.privat.widder">
+            <extra
+                android:name="widder.action_kind"
+                android:value="DRONE_A_NO_FIFTH" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="practice"
+        android:shortcutLongLabel="@string/shortcut_practice_long"
+        android:shortcutShortLabel="@string/shortcut_practice_short">
+        <intent
+            android:action="widder.WIDGET_ACTION"
+            android:targetClass="widder.android.MainActivity"
+            android:targetPackage="de.privat.widder">
+            <extra
+                android:name="widder.action_kind"
+                android:value="OPEN_PRACTICE" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="chord_progressions"
+        android:shortcutLongLabel="@string/shortcut_chords_long"
+        android:shortcutShortLabel="@string/shortcut_chords_short">
+        <intent
+            android:action="widder.WIDGET_ACTION"
+            android:targetClass="widder.android.MainActivity"
+            android:targetPackage="de.privat.widder">
+            <extra
+                android:name="widder.action_kind"
+                android:value="STUDY" />
+            <extra
+                android:name="widder.deck_id"
+                android:value="demo-akkorde" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="flash_cards"
+        android:shortcutLongLabel="@string/shortcut_cards_long"
+        android:shortcutShortLabel="@string/shortcut_cards_short">
+        <intent
+            android:action="widder.WIDGET_ACTION"
+            android:targetClass="widder.android.MainActivity"
+            android:targetPackage="de.privat.widder">
+            <extra
+                android:name="widder.action_kind"
+                android:value="OPEN_CARDS" />
+        </intent>
+    </shortcut>
+</shortcuts>

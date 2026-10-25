@@ -28,7 +28,18 @@ data class Deck(
     /** A folder this deck mirrors (see FolderAccess); every audio/MIDI file in it is a card. */
     val folder: String? = null,
     val created: Long = 0,
-)
+) {
+    /** The cards of this deck from [allCards] that match [studyTags] and can be studied. */
+    fun studyCards(allCards: List<Card>): List<Card> = allCards.filter { card ->
+        card.deckId == id &&
+            (studyTags.isEmpty() || card.tags.any { it in studyTags }) &&
+            (kind != DeckKind.CHORDS || (card.answer.isNotEmpty() && card.frontAudio != null))
+    }
+
+    /** Computes due counts (new, learning, review) for this deck against [allCards] and [progress]. */
+    fun counts(allCards: List<Card>, progress: Progress): DeckCounts =
+        Queue(this, studyCards(allCards), progress).counts
+}
 
 /**
  * Non-destructive edit of an audio clip. The original file is never touched; every playback

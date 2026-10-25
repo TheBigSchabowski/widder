@@ -64,6 +64,12 @@ interface PlatformHooks {
      */
     fun backgroundAudio(audio: BackgroundAudio?) = Unit
 
+    /**
+     * Called when decks, progress, or practice state change so Android home-screen widgets
+     * (due counts, deck names, drone state) can refresh immediately.
+     */
+    fun updateWidgets() = Unit
+
     /** Folders the user can see; null where decks cannot be linked to one. */
     val folders: widder.core.FolderAccess? get() = null
 }

@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Widder</string>
+    <string name="widget_description">Startet Drone ohne Quinte, Üben, Akkordfolgen oder ein Lerndeck direkt vom Startbildschirm.</string>
+    <string name="shortcut_drone_short">A-Drone (ohne 5)</string>
+    <string name="shortcut_drone_long">Drone auf A ohne Quinte starten</string>
+    <string name="shortcut_practice_short">Üben</string>
+    <string name="shortcut_practice_long">Drone, Drums, Looper &amp; Stimmgerät</string>
+    <string name="shortcut_chords_short">Akkordfolgen</string>
+    <string name="shortcut_chords_long">Erste Akkordfolgen trainieren</string>
+    <string name="shortcut_cards_short">Flash Cards</string>
+    <string name="shortcut_cards_long">Flash-Cards-Stapel öffnen</string>
 </resources>

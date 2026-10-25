@@ -2,13 +2,15 @@ package widder.core
 
 import kotlinx.serialization.Serializable
 
-/** What a tile gesture or a keyboard shortcut does. */
+/** What a tile gesture, a keyboard shortcut, or a home-screen widget does. */
 @Serializable
 enum class ActionKind(val label: String, val needsDeck: Boolean = false) {
     NONE("Nichts"),
     OPEN_CARDS("Flash Cards öffnen"),
     OPEN_CHORDS("Multiple Choice öffnen"),
     OPEN_PRACTICE("Üben: Drone & Drums"),
+    /** Starts the Practice screen with an A drone without the fifth playing right away. */
+    DRONE_A_NO_FIFTH("Drone auf A (ohne Quinte)"),
     STUDY("Lernen", needsDeck = true),
     BROWSE("Stapel öffnen", needsDeck = true),
     NEW_CARD("Neue Karte", needsDeck = true),

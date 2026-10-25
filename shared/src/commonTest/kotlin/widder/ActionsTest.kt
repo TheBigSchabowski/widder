@@ -360,4 +360,28 @@ class ActionsTest {
         assertEquals(settings, json.decodeFromString<Settings>(json.encodeToString(settings)))
         assertEquals(Shortcuts.DEFAULT_PREFIX, json.decodeFromString<Settings>("{}").prefix, "old collections get the prefix")
     }
+
+    @Test
+    fun droneANoFifthAndWidgetActions() {
+        val vm = vm()
+        vm.updatePractice { it.copy(root = 2, fifth = true) }
+        vm.runWidgetAction(Action(ActionKind.DRONE_A_NO_FIFTH))
+        assertEquals(Screen.Practice, vm.screen)
+        assertEquals(9, vm.practice.root)
+        assertFalse(vm.practice.fifth)
+        assertTrue(vm.droneOn)
+
+        // Tapping the widget again while A drone without fifth is playing stops it.
+        vm.runWidgetAction(Action(ActionKind.DRONE_A_NO_FIFTH))
+        assertFalse(vm.droneOn)
+
+        // Starting a chord progression deck via widget opens Training.
+        vm.runWidgetAction(Action(ActionKind.STUDY, "demo-akkorde"))
+        assertEquals(Screen.Train("demo-akkorde"), vm.screen)
+
+        // When a deck has 0 due cards, runWidgetAction opens its Browse screen instead of doing nothing.
+        val emptyDeck = vm.createDeck("Leer", DeckKind.CARDS)
+        vm.runWidgetAction(Action(ActionKind.STUDY, emptyDeck.id))
+        assertEquals(Screen.Browse(emptyDeck.id), vm.screen)
+    }
 }

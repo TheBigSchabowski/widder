@@ -15,6 +15,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.Modifier
 import widder.audio.androidAudioSystem
+import widder.core.Action
+import widder.core.ActionKind
 import widder.core.DirectoryStore
 import widder.core.IncomingFile
 import widder.core.PickKind
@@ -133,6 +135,11 @@ class MainActivity : ComponentActivity() {
             val context = appContext ?: return
             PracticeService.update(context, audio)
         }
+
+        override fun updateWidgets() {
+            val context = appContext ?: return
+            WidderWidgetProvider.updateAll(context)
+        }
     }
 
     private fun pickFiles(kind: PickKind, onResult: (List<IncomingFile>) -> Unit) {
@@ -168,9 +175,19 @@ class MainActivity : ComponentActivity() {
             }
         }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/') ?: "Datei"
 
-    /** Files opened with or shared to Widder. */
+    /** Files opened with or shared to Widder, or actions launched from a widget / shortcut. */
     private fun receive(intent: Intent?) {
         intent ?: return
+        if (intent.action == WidderWidgetProvider.ACTION_WIDGET) {
+            val kindName = intent.getStringExtra(WidderWidgetProvider.EXTRA_ACTION_KIND)
+            val kind = kindName?.let { runCatching { ActionKind.valueOf(it) }.getOrNull() }
+            if (kind != null) {
+                val deckId = intent.getStringExtra(WidderWidgetProvider.EXTRA_DECK_ID)
+                viewModel.runWidgetAction(Action(kind, deckId))
+            }
+            setIntent(Intent(this, MainActivity::class.java))
+            return
+        }
         val uris = when (intent.action) {
             Intent.ACTION_VIEW -> listOfNotNull(intent.data)
             Intent.ACTION_SEND -> listOfNotNull(stream(intent))
@@ -220,6 +237,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         viewModel.onPause()
+        WidderWidgetProvider.updateAll(applicationContext)
     }
 
     override fun onDestroy() {
@@ -231,6 +249,8 @@ class MainActivity : ComponentActivity() {
         private var holder: AppViewModel? = null
         private var current: MainActivity? = null
         private var askedForNotifications = false
+
+        internal fun peekViewModel(): AppViewModel? = holder
 
         /** The notification's stop button and a swipe from the recent apps. */
         fun stopPracticeSound() {
