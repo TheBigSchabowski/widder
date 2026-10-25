@@ -394,6 +394,12 @@ shared/src/desktopMain     javax.sound; Dateiformate: afconvert (Mac), Java-Deco
 androidApp/, desktopApp/   Einstiegspunkte
 ```
 
+## Lizenz
+
+Der Code steht unter der [MIT-Lizenz](LICENSE): Nutzen, forken, verändern und weitergeben
+ist erlaubt, auch kommerziell, solange der Copyright-Hinweis erhalten bleibt. Für die
+Drittanbieter-Inhalte unten gelten deren eigene Lizenzen.
+
 ## Drittanbieter-Inhalte
 
 - **Drum-Samples** des Drumsets „Akustik“ (`shared/src/jvmCommonMain/resources/drums/*.wav`) – aus
