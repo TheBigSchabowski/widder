@@ -398,7 +398,8 @@ androidApp/, desktopApp/   Einstiegspunkte
 
 Der Code steht unter der [MIT-Lizenz](LICENSE): Nutzen, forken, verändern und weitergeben
 ist erlaubt, auch kommerziell, solange der Copyright-Hinweis erhalten bleibt. Für die
-Drittanbieter-Inhalte unten gelten deren eigene Lizenzen.
+Drittanbieter-Inhalte unten gelten deren eigene Lizenzen
+(siehe [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
 
 ## Drittanbieter-Inhalte
 

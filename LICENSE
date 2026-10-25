@@ -20,11 +20,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
--------------------------------------------------------------------------------
-Third-party content (not covered by the MIT license above):
-
-- Drum samples in shared/src/jvmCommonMain/resources/drums/*.wav are taken from
-  the Hydrogen drumkit "The Black Pearl 1.0" by Glen MacArthur (AVL Drumkits)
-  and are licensed under the GPL. See drums/ATTRIBUTION.txt.
-- Bundled audio decoders JLayer, JOrbis and jFLAC are licensed under the LGPL,
-  jaad under the Apache License 2.0; they are included as unmodified jars.
